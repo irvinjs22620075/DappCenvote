@@ -29,6 +29,7 @@ import Layout from '../layouts/Layout.astro';
               class="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
               Conectar Wallet
             </button>
+            <p id="walletStatus" class="ml-4 text-sm text-gray-600"></p>
           </div>
         </div>
       </div>
@@ -63,166 +64,90 @@ import Layout from '../layouts/Layout.astro';
       </div>
     </div>
   </div>
-</Layout>
 
 <script>
-  let publicKey = null;
+  type FreighterApi = {
+    getNetwork: () => Promise<string>;
+    connect: () => Promise<void>;
+    getPublicKey: () => Promise<string>;
+    signAndSubmitTransaction: (xdr: string) => Promise<any>;
+    getTransaction: (params: {
+      network: string;
+      source: string;
+      contractId: string;
+      method: string;
+      args: any[];
+    }) => Promise<string>;
+  }
+
+  declare global {
+    interface Window {
+      freighterApi?: FreighterApi;
+    }
+  }
+
+  const CONTRACT_ID: string = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
+  let publicKey: string | null = null;
+
+  async function updateWalletUI(status: string, isConnected: boolean = false) {
+    const walletBtn = document.getElementById('connectWalletBtn');
+    const walletStatus = document.getElementById('walletStatus');
+    
+    if (walletBtn && walletStatus) {
+      if (isConnected) {
+        walletBtn.textContent = 'Wallet Conectada';
+        walletBtn.classList.add('bg-green-500');
+        walletBtn.classList.remove('bg-primary');
+        walletStatus.textContent = status;
+        walletStatus.classList.add('text-green-600');
+      } else {
+        walletBtn.textContent = 'Conectar Wallet';
+        walletBtn.classList.remove('bg-green-500');
+        walletBtn.classList.add('bg-primary');
+        walletStatus.textContent = status;
+        walletStatus.classList.add('text-red-600');
+      }
+    }
+  }
 
   async function connectWallet() {
     try {
       const freighter = window.freighterApi;
       if (!freighter) {
-        alert("Por favor instala Freighter Wallet");
+        updateWalletUI('Freighter no está instalado');
         window.open("https://www.freighter.app", "_blank");
         return;
       }
 
-      // Verificar red
       const network = await freighter.getNetwork();
       if (network !== "TESTNET") {
-        alert("Por favor cambia a la red TESTNET en Freighter");
+        updateWalletUI('Por favor cambia a la red TESTNET');
         return;
       }
 
       await freighter.connect();
-      publicKey = await freighter.getPublicKey();
-      document.getElementById('connectWalletBtn').textContent = 'Wallet Conectada';
-      document.getElementById('connectWalletBtn').classList.add('bg-green-500');
-      document.getElementById('connectWalletBtn').classList.remove('bg-primary');
+      const newPublicKey = await freighter.getPublicKey();
+      publicKey = newPublicKey;
+      updateWalletUI(`Conectado: ${newPublicKey.slice(0, 10)}...`, true);
 
     } catch (error) {
       console.error("Error al conectar wallet:", error);
-      alert("Error al conectar con Freighter");
+      updateWalletUI('Error al conectar wallet');
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
-  });
-</script>
-</Layout>
-<body>
-  <div class="container">
-    <center><h1>CenVote</h1></center>
-    <center><h2 style="padding:15px;">Sistema de Votación Descentralizada</h2></center>
-    <center>
-      <button class="btn btn-primary" type="button" onclick="conectarWallet()" style="padding: 10px; width: 150px; height: 50px; border-radius: 30px;">
-        Conectar Wallet
-      </button>
-      <p id="walletStatus"></p>
-    </center>
-  </div>
-
-  <!-- Formulario para registrar usuario -->
-  <div class="container">
-    <form id="addUserForm">
-      <center><h2 style="border-radius: 25px;">Registrar Usuario</h2></center>
-      <input name="user_id" placeholder="ID de usuario" required />
-      <input name="first_name" placeholder="Nombre" required />
-      <input name="paternal_last_name" placeholder="Apellido paterno" required />
-      <input name="maternal_last_name" placeholder="Apellido materno" required />
-      <input name="phone" placeholder="Teléfono" required />
-      <input name="email" placeholder="Correo electrónico" required />
-      <button type="submit">Registrar Usuario</button>
-    </form>
-  </div>
-  <!-- Formulario para registrar candidato -->
-	<div class="container">
-    <form id="addCandidateForm">
-      <center><h2>Registrar Candidato</h2></center>
-      <input name="candidate_id" placeholder="ID del candidato" required />
-      <input name="user_id" placeholder="ID del usuario existente" required />
-      <input name="rfc" placeholder="RFC" required />
-      <button type="submit">Registrar Candidato</button>
-    </form>
-	</div>
-
-    <!-- Formulario para emitir un voto -->
-	<div class="container">
-    <form id="voteForm">
-      <center><h2>Votar por Candidato</h2></center>
-      <input name="id_voto" placeholder="ID del voto" required />
-      <input name="id_usuario" placeholder="ID del usuario" required />
-      <input name="id_candidato" placeholder="ID del candidato" required />
-      <input name="fecha_voto" type="date" required />
-      <button type="submit">Votar</button>
-    </form>
-	</div>
-
-    <!-- Formulario para crear encuesta -->
-	<div class="container">
-    <form id="createSurveyForm">
-      <center><h2>Crear Encuesta</h2></center>
-      <input name="id_encuesta" placeholder="ID de encuesta" required />
-      <input name="nombre_encuesta" placeholder="Nombre de encuesta" required />
-      <input name="descripcion" placeholder="Descripción" required />
-      <input name="fecha_creacion" type="date" required />
-      <input name="fecha_culminacion" type="date" required />
-      <input name="id_voto" placeholder="ID de voto" required />
-      <input name="id_candidato" placeholder="ID del candidato" required />
-      <button type="submit">Crear Encuesta</button>
-    </form>
-	</div>
-
-    <!-- Formulario para autenticación -->
-	<div class="container">
-    <form id="authForm">
-      <center><h2>Autenticación</h2></center>
-      <input name="id" placeholder="ID" required />
-      <input name="rfc" placeholder="RFC" required />
-      <button type="submit">Autenticar</button>
-    </form>
-	</div>
-
-  <script type="module">
-  const CONTRACT_ID = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
-  let publicKey = null;
-
-  async function conectarWallet() {
-    try {
-      const freighter = window.freighterApi || window.freighter || (window.self !== window.top && window.parent.freighter);
-
-      if (!freighter) {
-        throw new Error("Freighter no está instalado o no está disponible en esta página.");
-      }
-
-      // Obtener clave pública: esto abrirá el prompt de conexión
-      publicKey = await freighter.getPublicKey();
-
-      const network = await freighter.getNetwork();
-
-      // Forzar uso de TESTNET si no está en esa red
-      if (network !== "TESTNET") {
-        alert("Estás en la red equivocada. Por favor, cambia a TESTNET desde Freighter.");
-        return;
-      }
-
-      document.getElementById('walletStatus').innerText = `Wallet conectada: ${publicKey}`;
-      document.getElementById('walletStatus').style.color = "green";
-      alert(` Wallet conectada: ${publicKey}\nRed: ${network}`);
-    } catch (error) {
-      console.error("Error al conectar con Freighter:", error);
-      document.getElementById('walletStatus').innerText = " Error al conectar wallet";
-      document.getElementById('walletStatus').style.color = "red";
-
-      if (error.message.includes("Freighter")) {
-        window.open("https://www.freighter.app", "_blank");
-      }
-    }
-  }
-
-  async function invokeContractFunction(method, args = []) {
+  async function invokeContractFunction(method: string, args: any[] = []) {
     if (!publicKey) {
       const shouldConnect = confirm("Debes conectar tu wallet primero. ¿Conectar ahora?");
       if (shouldConnect) {
-        await conectarWallet();
-      } else {
-        return;
+        await connectWallet();
       }
+      if (!publicKey) return;
     }
 
     try {
-      const freighter = window.freighterApi || window.freighter;
+      const freighter = window.freighterApi;
+      if (!freighter) throw new Error("Freighter no está disponible");
 
       const transactionXDR = await freighter.getTransaction({
         network: "TESTNET",
@@ -233,39 +158,19 @@ import Layout from '../layouts/Layout.astro';
       });
 
       const txResponse = await freighter.signAndSubmitTransaction(transactionXDR);
-
-      alert(` Transacción enviada\nHash: ${txResponse.hash}`);
-      console.log("Transacción completada:", txResponse);
       return txResponse;
     } catch (err) {
       console.error("Error en invokeContractFunction:", err);
-      alert(` Error en la transacción:\n${err.message}`);
       throw err;
     }
   }
 
-  document.getElementById('addUserForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      const formData = new FormData(e.target);
-      const args = {
-        user_id: formData.get('user_id'),
-        first_name: formData.get('first_name'),
-        paternal_last_name: formData.get('paternal_last_name'),
-        maternal_last_name: formData.get('maternal_last_name'),
-        phone: formData.get('phone'),
-        email: formData.get('email')
-      };
-      await invokeContractFunction('registrar_usuario', args);
-    } catch (error) {
-      console.error("Error en formulario:", error);
+  // Event Listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    const connectWalletBtn = document.getElementById('connectWalletBtn');
+    if (connectWalletBtn) {
+      connectWalletBtn.addEventListener('click', connectWallet);
     }
   });
-
-  window.conectarWallet = conectarWallet;
-  window.invokeContractFunction = invokeContractFunction;
 </script>
-
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-</body>
+</Layout>
