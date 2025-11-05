@@ -1,0 +1,56 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="CenVote - Decentralized Voting Platform" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<script>
+			// Freighter Wallet Integration
+			declare global {
+				interface Window {
+					freighterApi: any;
+				}
+			}
+
+			const checkFreighterConnection = async () => {
+				if (window.freighterApi) {
+					try {
+						const connected = await window.freighterApi.isConnected();
+						if (!connected) {
+							console.log("Freighter not connected");
+							return false;
+						}
+						const publicKey = await window.freighterApi.getPublicKey();
+						console.log("Connected with public key:", publicKey);
+						return true;
+					} catch (e) {
+						console.error("Error connecting to Freighter:", e);
+						return false;
+					}
+				} else {
+					console.log("Freighter not installed");
+					return false;
+				}
+			};
+
+			// Initialize wallet connection
+			document.addEventListener('DOMContentLoaded', checkFreighterConnection);
+		</script>
+	</head>
+	<body class="min-h-screen bg-gray-100">
+		<slot />
+	</body>
+</html>

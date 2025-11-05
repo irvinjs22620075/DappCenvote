@@ -1,0 +1,218 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Gestión de Encuestas - CenVote">
+  <div class="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">Gestión de Encuestas</h1>
+        
+        <!-- Formulario de Encuesta -->
+        <form id="surveyForm" class="space-y-6">
+          <div class="grid grid-cols-1 gap-6">
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700">Nombre de la Encuesta</label>
+              <input type="text" id="name" name="name" required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+            </div>
+            <div>
+              <label for="description" class="block text-sm font-medium text-gray-700">Descripción</label>
+              <textarea id="description" name="description" rows="4" required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"></textarea>
+            </div>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label for="start_date" class="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
+                <input type="datetime-local" id="start_date" name="start_date" required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+              </div>
+              <div>
+                <label for="end_date" class="block text-sm font-medium text-gray-700">Fecha de Fin</label>
+                <input type="datetime-local" id="end_date" name="end_date" required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+              </div>
+            </div>
+            <div>
+              <label for="candidates" class="block text-sm font-medium text-gray-700">Candidatos</label>
+              <select multiple id="candidates" name="candidates"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                <!-- Los candidatos se cargarán aquí -->
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-4">
+            <button type="button" id="connectWalletBtn"
+              class="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+              Conectar Wallet
+            </button>
+            <button type="submit"
+              class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+              Crear Encuesta
+            </button>
+          </div>
+        </form>
+
+        <!-- Lista de Encuestas -->
+        <div class="mt-8">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Encuestas Activas</h2>
+          <div class="grid gap-6 md:grid-cols-2" id="surveysList">
+            <!-- Las encuestas se cargarán aquí -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  let publicKey = null;
+
+  // Conexión con Freighter
+  async function connectWallet() {
+    try {
+      const freighter = window.freighterApi;
+      if (!freighter) {
+        alert("Por favor instala Freighter Wallet");
+        window.open("https://www.freighter.app", "_blank");
+        return;
+      }
+
+      // Verificar red
+      const network = await freighter.getNetwork();
+      if (network !== "TESTNET") {
+        alert("Por favor cambia a la red TESTNET en Freighter");
+        return;
+      }
+
+      await freighter.connect();
+      publicKey = await freighter.getPublicKey();
+      document.getElementById('connectWalletBtn').textContent = 'Wallet Conectada';
+      document.getElementById('connectWalletBtn').classList.add('bg-green-500');
+      document.getElementById('connectWalletBtn').classList.remove('bg-primary');
+
+    } catch (error) {
+      console.error("Error al conectar wallet:", error);
+      alert("Error al conectar con Freighter");
+    }
+  }
+
+  // Cargar candidatos para el selector
+  async function loadCandidateOptions() {
+    try {
+      const response = await fetch('http://localhost:3000/api/candidates');
+      const candidates = await response.json();
+      const selectElement = document.getElementById('candidates');
+      
+      selectElement.innerHTML = candidates.map(candidate => `
+        <option value="${candidate._id}">${candidate.name} (${candidate.rfc})</option>
+      `).join('');
+    } catch (error) {
+      console.error('Error al cargar candidatos:', error);
+    }
+  }
+
+  // Cargar encuestas
+  async function loadSurveys() {
+    try {
+      const response = await fetch('http://localhost:3000/api/surveys');
+      const surveys = await response.json();
+      const surveysList = document.getElementById('surveysList');
+      
+      surveysList.innerHTML = surveys.map(survey => `
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg">
+          <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900">${survey.name}</h3>
+            <p class="mt-2 text-gray-600">${survey.description}</p>
+            <div class="mt-4">
+              <p class="text-sm text-gray-500">Inicio: ${new Date(survey.start_date).toLocaleString()}</p>
+              <p class="text-sm text-gray-500">Fin: ${new Date(survey.end_date).toLocaleString()}</p>
+            </div>
+            <div class="mt-4 flex justify-end space-x-2">
+              <button onclick="editSurvey('${survey._id}')"
+                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
+                Editar
+              </button>
+              <button onclick="deleteSurvey('${survey._id}')"
+                class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (error) {
+      console.error('Error al cargar encuestas:', error);
+    }
+  }
+
+  // Crear encuesta
+  document.getElementById('surveyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!publicKey) {
+      alert('Por favor conecta tu wallet primero');
+      return;
+    }
+
+    const formData = new FormData(e.target);
+    const selectedCandidates = Array.from(document.getElementById('candidates').selectedOptions).map(option => option.value);
+    
+    const surveyData = {
+      name: formData.get('name'),
+      description: formData.get('description'),
+      start_date: formData.get('start_date'),
+      end_date: formData.get('end_date'),
+      candidates: selectedCandidates,
+      created_by: publicKey
+    };
+
+    try {
+      const response = await fetch('http://localhost:3000/api/surveys', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(surveyData)
+      });
+
+      if (response.ok) {
+        alert('Encuesta creada exitosamente');
+        e.target.reset();
+        loadSurveys();
+      } else {
+        throw new Error('Error al crear encuesta');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al crear encuesta');
+    }
+  });
+
+  // Eliminar encuesta
+  async function deleteSurvey(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar esta encuesta?')) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/surveys/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          alert('Encuesta eliminada exitosamente');
+          loadSurveys();
+        } else {
+          throw new Error('Error al eliminar encuesta');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al eliminar encuesta');
+      }
+    }
+  }
+
+  // Event Listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+    loadCandidateOptions();
+    loadSurveys();
+  });
+</script>
