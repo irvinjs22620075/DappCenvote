@@ -1,5 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import WalletConnector from '../components/WalletConnector.astro';
+import PasskeyConnector from '../components/PasskeyConnector.astro';
+
+// Definir las variables que se usarán en el cliente
+const CONTRACT_ID = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
 ---
 
 <Layout title="CenVote - Sistema de Votación Descentralizada">
@@ -25,11 +30,7 @@ import Layout from '../layouts/Layout.astro';
             </div>
           </div>
           <div class="flex items-center">
-            <button id="connectWalletBtn"
-              class="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-              Conectar Wallet
-            </button>
-            <p id="walletStatus" class="ml-4 text-sm text-gray-600"></p>
+            <WalletConnector />
           </div>
         </div>
       </div>
@@ -44,6 +45,14 @@ import Layout from '../layouts/Layout.astro';
         <p class="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
           Sistema de votación descentralizado seguro y transparente
         </p>
+
+        <!-- Passkey + Freighter Authentication Section -->
+        <div class="mt-12 mb-12 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-8 border-2 border-blue-200">
+          <h3 class="text-2xl font-bold text-gray-900 mb-6">🔐 Autenticación Segura</h3>
+          <p class="text-gray-600 mb-8">Autentica usando Passkey (WebAuthn) + Freighter Wallet</p>
+          <PasskeyConnector />
+        </div>
+
         <div class="mt-10 grid gap-6 md:grid-cols-3">
           <a href="/users"
             class="p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
@@ -66,111 +75,94 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
 <script>
-  type FreighterApi = {
-    getNetwork: () => Promise<string>;
-    connect: () => Promise<void>;
-    getPublicKey: () => Promise<string>;
-    signAndSubmitTransaction: (xdr: string) => Promise<any>;
-    getTransaction: (params: {
-      network: string;
-      source: string;
-      contractId: string;
-      method: string;
-      args: any[];
-    }) => Promise<string>;
-  }
+import { freighterService } from '../services/FreighterService';
 
-  declare global {
-    interface Window {
-      freighterApi?: FreighterApi;
+// El CONTRACT_ID se pasa desde el servidor
+declare const CONTRACT_ID: string;
+
+async function invokeContractFunction(method: string, args: any[] = []) {
+  try {
+    // Verificar instalación de Freighter
+    if (!(window as any).freighter) {
+      alert('Por favor instala Freighter Wallet');
+      window.open('https://www.freighter.app', '_blank');
+      return;
     }
-  }
 
-  const CONTRACT_ID: string = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
-  let publicKey: string | null = null;
-
-  async function updateWalletUI(status: string, isConnected: boolean = false) {
-    const walletBtn = document.getElementById('connectWalletBtn');
-    const walletStatus = document.getElementById('walletStatus');
-    
-    if (walletBtn && walletStatus) {
-      if (isConnected) {
-        walletBtn.textContent = 'Wallet Conectada';
-        walletBtn.classList.add('bg-green-500');
-        walletBtn.classList.remove('bg-primary');
-        walletStatus.textContent = status;
-        walletStatus.classList.add('text-green-600');
-      } else {
-        walletBtn.textContent = 'Conectar Wallet';
-        walletBtn.classList.remove('bg-green-500');
-        walletBtn.classList.add('bg-primary');
-        walletStatus.textContent = status;
-        walletStatus.classList.add('text-red-600');
-      }
-    }
-  }
-
-  async function connectWallet() {
-    try {
-      const freighter = window.freighterApi;
-      if (!freighter) {
-        updateWalletUI('Freighter no está instalado');
-        window.open("https://www.freighter.app", "_blank");
-        return;
-      }
-
-      const network = await freighter.getNetwork();
-      if (network !== "TESTNET") {
-        updateWalletUI('Por favor cambia a la red TESTNET');
-        return;
-      }
-
-      await freighter.connect();
-      const newPublicKey = await freighter.getPublicKey();
-      publicKey = newPublicKey;
-      updateWalletUI(`Conectado: ${newPublicKey.slice(0, 10)}...`, true);
-
-    } catch (error) {
-      console.error("Error al conectar wallet:", error);
-      updateWalletUI('Error al conectar wallet');
-    }
-  }
-
-  async function invokeContractFunction(method: string, args: any[] = []) {
-    if (!publicKey) {
+    // Verificar conexión
+    if (!freighterService.isConnected) {
       const shouldConnect = confirm("Debes conectar tu wallet primero. ¿Conectar ahora?");
       if (shouldConnect) {
-        await connectWallet();
+        const result = await freighterService.connect();
+        if (!result.success) {
+          alert(result.message);
+          return;
+        }
+      } else {
+        return;
       }
-      if (!publicKey) return;
     }
 
-    try {
-      const freighter = window.freighterApi;
-      if (!freighter) throw new Error("Freighter no está disponible");
+    // Verificar disponibilidad de la API
+    const freighter = (window as any).freighterApi;
+    if (!freighter) {
+      alert('No se puede acceder a la API de Freighter. Por favor recarga la página.');
+      return;
+    }
 
-      const transactionXDR = await freighter.getTransaction({
-        network: "TESTNET",
-        source: publicKey,
-        contractId: CONTRACT_ID,
-        method,
-        args
-      });
+    // Obtener información necesaria
+    const publicKey = freighterService.publicKey;
+    const networkDetails = freighterService.networkDetails;
+    
+    if (!publicKey || !networkDetails) {
+      throw new Error("No se pudo obtener la información de la wallet");
+    }
 
-      const txResponse = await freighter.signAndSubmitTransaction(transactionXDR);
-      return txResponse;
-    } catch (err) {
-      console.error("Error en invokeContractFunction:", err);
-      throw err;
+    console.log('Preparando transacción con:', {
+      network: networkDetails.network,
+      publicKey,
+      contractId: CONTRACT_ID,
+      method,
+      args
+    });
+
+    // Crear la transacción
+    const transactionXDR = await freighter.getTransaction({
+      network: networkDetails.network,
+      source: publicKey,
+      contractId: CONTRACT_ID,
+      method,
+      args
+    });
+
+    console.log('TransactionXDR generado:', transactionXDR);
+
+    // Firmar la transacción
+    const { signed, error } = await freighterService.signTransaction(transactionXDR);
+    if (error) {
+      throw new Error(error);
+    }
+
+    // Enviar la transacción
+    console.log('Enviando transacción firmada...');
+    const txResponse = await freighter.signAndSubmitTransaction(signed);
+    console.log("Transacción completada:", txResponse);
+    return txResponse;
+  } catch (err) {
+    console.error("Error en invokeContractFunction:", err);
+    alert(`Error en la transacción: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+  }
+}
+
+// Inicializar la conexión si ya existe
+document.addEventListener('DOMContentLoaded', async () => {
+  const isAvailable = await freighterService.checkConnection();
+  if (isAvailable && freighterService.isConnected) {
+    const result = await freighterService.connect();
+    if (!result.success) {
+      console.error('Error reconectando con Freighter:', result.message);
     }
   }
-
-  // Event Listeners
-  document.addEventListener('DOMContentLoaded', () => {
-    const connectWalletBtn = document.getElementById('connectWalletBtn');
-    if (connectWalletBtn) {
-      connectWalletBtn.addEventListener('click', connectWallet);
-    }
-  });
+});
 </script>
 </Layout>
