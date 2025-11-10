@@ -1,0 +1,88 @@
+---
+---
+// El servicio se importará en el lado del cliente
+---
+
+<div class="flex items-center space-x-4" id="walletConnector">
+  <button 
+    id="connectWalletBtn"
+    class="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+  >
+    Conectar Wallet
+  </button>
+  <p id="walletStatus" class="text-sm text-gray-600 hidden"></p>
+</div>
+
+<script>
+import { freighterService } from '../services/FreighterService';
+
+const walletConnector = document.getElementById('walletConnector');
+const connectButton = document.getElementById('connectWalletBtn');
+const statusElement = document.getElementById('walletStatus');
+
+async function updateUI(isConnected: boolean, publicKey?: string) {
+  if (!connectButton || !statusElement) return;
+
+  if (isConnected && publicKey) {
+    connectButton.classList.remove('bg-primary', 'hover:bg-blue-700');
+    connectButton.classList.add('bg-green-500', 'hover:bg-green-600');
+    connectButton.textContent = 'Wallet Conectada';
+    
+    statusElement.textContent = `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`;
+    statusElement.classList.remove('hidden');
+  } else {
+    connectButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+    connectButton.classList.add('bg-primary', 'hover:bg-blue-700');
+    connectButton.textContent = 'Conectar Wallet';
+    
+    statusElement.classList.add('hidden');
+  }
+}
+
+async function handleConnect() {
+  try {
+    // Verificar si Freighter está instalado
+    if (!(window as any).freighter) {
+      alert('Por favor instala Freighter Wallet');
+      window.open('https://www.freighter.app', '_blank');
+      return;
+    }
+
+    // Verificar si la API está disponible
+    if (!(window as any).freighterApi) {
+      alert('No se puede acceder a la API de Freighter. Por favor recarga la página.');
+      return;
+    }
+
+    // Intentar conectar
+    const result = await freighterService.connect();
+    console.log('Resultado de conexión:', result);
+    
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+
+    updateUI(true, freighterService.publicKey);
+  } catch (error) {
+    console.error('Error al conectar:', error);
+    alert('Error al intentar conectar con Freighter');
+  }
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', async () => {
+  const isAvailable = await freighterService.checkConnection();
+  if (isAvailable && freighterService.isConnected) {
+    updateUI(true, freighterService.publicKey);
+  }
+});
+
+connectButton?.addEventListener('click', handleConnect);
+
+// Escuchar cambios en la wallet
+window.addEventListener('walletConnected', ((event: CustomEvent) => {
+  const { publicKey } = event.detail;
+  updateUI(true, publicKey);
+}) as EventListener);
+</script>

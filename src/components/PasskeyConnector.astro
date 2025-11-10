@@ -1,0 +1,284 @@
+---
+// PasskeyConnector.astro - WebAuthn (Passkey) UI component for Soroban integration
+import { registerPasskey, authenticatePasskey } from '../services/PasskeyService';
+
+interface Props {
+  title?: string;
+  showDebug?: boolean;
+}
+
+const { title = 'Passkey Authentication', showDebug = false } = Astro.props as Props;
+---
+
+<div id="passkey-connector" class="passkey-container">
+  <div class="passkey-card">
+    <h2>{title}</h2>
+    
+    <div class="passkey-actions">
+      <button id="register-btn" class="btn btn-primary">
+        📱 Register Passkey
+      </button>
+      <button id="authenticate-btn" class="btn btn-secondary">
+        🔐 Authenticate
+      </button>
+      <button id="clear-btn" class="btn btn-danger">
+        🗑️ Clear Storage
+      </button>
+    </div>
+
+    <div id="status" class="status-message"></div>
+
+    {showDebug && (
+      <div class="debug-section">
+        <h3>Debug Info</h3>
+        <pre id="debug-output"></pre>
+      </div>
+    )}
+  </div>
+</div>
+
+<style>
+  .passkey-container {
+    max-width: 500px;
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .passkey-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f9f9f9;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  h2 {
+    margin-top: 0;
+    color: #333;
+    text-align: center;
+  }
+
+  .passkey-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+  }
+
+  .btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-primary {
+    background: #007bff;
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #0056b3;
+  }
+
+  .btn-secondary {
+    background: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: #545b62;
+  }
+
+  .btn-danger {
+    background: #dc3545;
+    color: white;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: #c82333;
+  }
+
+  .status-message {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+    min-height: 20px;
+    font-size: 14px;
+  }
+
+  .status-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+
+  .status-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+
+  .status-message.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+  }
+
+  .debug-section {
+    margin-top: 20px;
+    padding: 10px;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  .debug-section h3 {
+    margin-top: 0;
+    font-size: 12px;
+  }
+
+  #debug-output {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 11px;
+    background: #fff;
+    padding: 8px;
+    border-radius: 3px;
+  }
+</style>
+
+<script>
+  // WebAuthn Passkey functionality
+  import { registerPasskey, authenticatePasskey } from '../services/PasskeyService';
+
+  const registerBtn = document.getElementById('register-btn');
+  const authenticateBtn = document.getElementById('authenticate-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  const statusDiv = document.getElementById('status');
+  const debugOutput = document.getElementById('debug-output');
+
+  function showStatus(message: string, type: 'success' | 'error' | 'info') {
+    if (statusDiv) {
+      statusDiv.textContent = message;
+      statusDiv.className = `status-message ${type}`;
+    }
+    console.log(`[${type.toUpperCase()}] ${message}`);
+  }
+
+  function appendDebug(text: string) {
+    if (debugOutput) {
+      debugOutput.textContent += text + '\n';
+      debugOutput.parentElement?.scrollTo(0, debugOutput.parentElement?.scrollHeight || 0);
+    }
+  }
+
+  registerBtn?.addEventListener('click', async () => {
+    try {
+      registerBtn.disabled = true;
+      showStatus('Registering passkey...', 'info');
+      appendDebug('[REGISTER] Starting passkey registration...');
+
+      // In a real app, get these from user input or auth context
+      const userId = `user-${Date.now()}`;
+      const userName = prompt('Enter your name:', 'User') || 'User';
+
+      const result = await registerPasskey({
+        id: userId,
+        name: userName,
+        displayName: userName
+      });
+
+      appendDebug(`[REGISTER] Success! Credential ID: ${result.id}`);
+      
+      // Store in localStorage (in production, send to server)
+      const credentials = JSON.parse(localStorage.getItem('passkey_credentials') || '{}');
+      credentials[userId] = {
+        credentialId: result.rawId,
+        name: userName,
+        createdAt: new Date().toISOString()
+      };
+      localStorage.setItem('passkey_credentials', JSON.stringify(credentials));
+
+      showStatus(`✓ Passkey registered successfully for ${userName}`, 'success');
+      
+      // Dispatch event for Soroban contract integration
+      window.dispatchEvent(new CustomEvent('passkeyRegistered', {
+        detail: { userId, credentialId: result.rawId, userName }
+      }));
+
+    } catch (err: any) {
+      const error = err instanceof Error ? err.message : String(err);
+      appendDebug(`[REGISTER ERROR] ${error}`);
+      showStatus(`✗ Registration failed: ${error}`, 'error');
+    } finally {
+      registerBtn.disabled = false;
+    }
+  });
+
+  authenticateBtn?.addEventListener('click', async () => {
+    try {
+      authenticateBtn.disabled = true;
+      showStatus('Authenticating with passkey...', 'info');
+      appendDebug('[AUTH] Starting passkey authentication...');
+
+      // In a real app, get the challenge from your backend
+      const mockChallenge = new Uint8Array(32);
+      crypto.getRandomValues(mockChallenge);
+
+      const result = await authenticatePasskey(mockChallenge);
+
+      appendDebug(`[AUTH] Success! Assertion ID: ${result.id}`);
+      appendDebug(`[AUTH] Signature received (first 20 chars): ${result.signature.substring(0, 20)}...`);
+
+      showStatus(`✓ Authentication successful!`, 'success');
+
+      // Dispatch event for Soroban contract integration
+      window.dispatchEvent(new CustomEvent('passkeyAuthenticated', {
+        detail: {
+          assertionId: result.id,
+          signature: result.signature,
+          clientDataJSON: result.clientDataJSON,
+          authenticatorData: result.authenticatorData
+        }
+      }));
+
+    } catch (err: any) {
+      const error = err instanceof Error ? err.message : String(err);
+      appendDebug(`[AUTH ERROR] ${error}`);
+      showStatus(`✗ Authentication failed: ${error}`, 'error');
+    } finally {
+      authenticateBtn.disabled = false;
+    }
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    if (confirm('Clear stored passkey credentials?')) {
+      localStorage.removeItem('passkey_credentials');
+      appendDebug('[CLEAR] Storage cleared');
+      showStatus('✓ Credentials cleared', 'success');
+    }
+  });
+
+  // Log initial state
+  const hasBiometric = window.PublicKeyCredential !== undefined;
+  appendDebug(`[INIT] WebAuthn available: ${hasBiometric}`);
+  if (!hasBiometric) {
+    showStatus('⚠️ WebAuthn not available on this device', 'error');
+  }
+</script>
