@@ -1,7 +1,3 @@
----
----
-// El servicio se importará en el lado del cliente
----
 
 <div class="flex items-center space-x-4" id="walletConnector">
   <button 
@@ -26,15 +22,14 @@
 <script>
 import { freighterService } from '../services/FreighterService';
 
-const walletConnector = document.getElementById('walletConnector');
-const connectButton = document.getElementById('connectWalletBtn');
-const statusElement = document.getElementById('walletStatus');
+const connectButton = document.getElementById('connectWalletBtn') as HTMLButtonElement | null;
+const statusElement = document.getElementById('walletStatus') as HTMLElement | null;
 
-async function updateUI(isConnected: boolean, publicKey?: string) {
+async function updateUI(isConnected: boolean, publicKey?: string): Promise<void> {
   if (!connectButton || !statusElement) return;
 
   if (isConnected && publicKey) {
-    const walletAddress = document.getElementById('walletAddress');
+    const walletAddress = document.getElementById('walletAddress') as HTMLElement | null;
     connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-700 group-hover:from-emerald-700 group-hover:to-emerald-800 transition-all duration-300"></div><span class="relative inline-flex items-center gap-2">✅ <span>Conectada</span></span>`;
     connectButton.disabled = true;
     
@@ -51,7 +46,7 @@ async function updateUI(isConnected: boolean, publicKey?: string) {
   }
 }
 
-async function handleConnect() {
+async function handleConnect(): Promise<void> {
   try {
     // Verificar si Freighter está instalado
     if (!(window as any).freighter) {
@@ -94,7 +89,7 @@ connectButton?.addEventListener('click', handleConnect);
 
 // Escuchar cambios en la wallet
 window.addEventListener('walletConnected', ((event: CustomEvent) => {
-  const { publicKey } = event.detail;
+  const { publicKey } = event.detail as { publicKey: string };
   updateUI(true, publicKey);
 }) as EventListener);
 </script>
