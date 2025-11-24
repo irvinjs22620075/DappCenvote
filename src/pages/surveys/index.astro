@@ -69,27 +69,26 @@ import Layout from '../../layouts/Layout.astro';
   let publicKey = null;
 
   // Conexión con Freighter
+  import { freighterService } from '../../services/FreighterService';
+
+  // Conexión con Freighter
   async function connectWallet() {
     try {
-      const freighter = window.freighterApi;
-      if (!freighter) {
-        alert("Por favor instala Freighter Wallet");
-        window.open("https://www.freighter.app", "_blank");
-        return;
+      const result = await freighterService.connect();
+      
+      if (result.success) {
+        publicKey = result.publicKey;
+        const btn = document.getElementById('connectWalletBtn');
+        btn.textContent = 'Wallet Conectada';
+        btn.classList.remove('bg-primary');
+        btn.classList.add('bg-green-500');
+        
+        if (publicKey === freighterService.expectedPublicKey) {
+            console.log('✅ Cuenta verificada en formulario de encuestas');
+        }
+      } else {
+        alert(result.message);
       }
-
-      // Verificar red
-      const network = await freighter.getNetwork();
-      if (network !== "TESTNET") {
-        alert("Por favor cambia a la red TESTNET en Freighter");
-        return;
-      }
-
-      await freighter.connect();
-      publicKey = await freighter.getPublicKey();
-      document.getElementById('connectWalletBtn').textContent = 'Wallet Conectada';
-      document.getElementById('connectWalletBtn').classList.add('bg-green-500');
-      document.getElementById('connectWalletBtn').classList.remove('bg-primary');
 
     } catch (error) {
       console.error("Error al conectar wallet:", error);
