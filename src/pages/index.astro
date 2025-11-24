@@ -124,10 +124,15 @@ declare const CONTRACT_ID: string;
 
 async function invokeContractFunction(method: string, args: any[] = []) {
   try {
+    console.log('📞 Invocando función de contrato:', method);
+
     // Verificar instalación de Freighter
-    if (!(window as any).freighter) {
-      alert('Por favor instala Freighter Wallet');
-      window.open('https://www.freighter.app', '_blank');
+    const isInstalled = await freighterService.isFreighterInstalled();
+    if (!isInstalled) {
+      const shouldInstall = confirm('Freighter no está instalado. ¿Deseas ir a la página de instalación?');
+      if (shouldInstall) {
+        window.open('https://www.freighter.app', '_blank');
+      }
       return;
     }
 
@@ -137,7 +142,7 @@ async function invokeContractFunction(method: string, args: any[] = []) {
       if (shouldConnect) {
         const result = await freighterService.connect();
         if (!result.success) {
-          alert(result.message);
+          alert(`❌ ${result.message}`);
           return;
         }
       } else {
@@ -146,8 +151,8 @@ async function invokeContractFunction(method: string, args: any[] = []) {
     }
 
     // Verificar disponibilidad de la API
-    const freighter = (window as any).freighterApi;
-    if (!freighter) {
+    const freighterApi = (window as any).freighterApi;
+    if (!freighterApi) {
       alert('No se puede acceder a la API de Freighter. Por favor recarga la página.');
       return;
     }
@@ -160,24 +165,28 @@ async function invokeContractFunction(method: string, args: any[] = []) {
       throw new Error("No se pudo obtener la información de la wallet");
     }
 
-    console.log('Preparando transacción con:', {
+    console.log('📋 Preparando transacción con:', {
       network: networkDetails.network,
-      publicKey,
+      publicKey: `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`,
       contractId: CONTRACT_ID,
       method,
       args
     });
 
-    // Crear la transacción
-    const transactionXDR = await freighter.getTransaction({
+    // TODO: Implementar llamada al contrato Soroban
+    // Por ahora, esto es un placeholder
+    console.log('⚠️ La integración con el contrato Soroban está pendiente');
+    alert('La funcionalidad de contratos está en desarrollo. Tu wallet está conectada correctamente.');
+
+    /* 
+    // Ejemplo de cómo se vería la integración completa:
+    const transactionXDR = await freighterApi.getTransaction({
       network: networkDetails.network,
       source: publicKey,
       contractId: CONTRACT_ID,
       method,
       args
     });
-
-    console.log('TransactionXDR generado:', transactionXDR);
 
     // Firmar la transacción
     const { signed, error } = await freighterService.signTransaction(transactionXDR);
@@ -186,24 +195,38 @@ async function invokeContractFunction(method: string, args: any[] = []) {
     }
 
     // Enviar la transacción
-    console.log('Enviando transacción firmada...');
-    const txResponse = await freighter.signAndSubmitTransaction(signed);
-    console.log("Transacción completada:", txResponse);
+    console.log('📤 Enviando transacción firmada...');
+    const txResponse = await freighterApi.signAndSubmitTransaction(signed);
+    console.log("✅ Transacción completada:", txResponse);
     return txResponse;
+    */
   } catch (err) {
-    console.error("Error en invokeContractFunction:", err);
+    console.error("❌ Error en invokeContractFunction:", err);
     alert(`Error en la transacción: ${err instanceof Error ? err.message : 'Error desconocido'}`);
   }
 }
 
-// Inicializar la conexión si ya existe
+// Exponer función globalmente para testing
+(window as any).invokeContractFunction = invokeContractFunction;
+
+// Inicializar la conexión al cargar la página
 document.addEventListener('DOMContentLoaded', async () => {
-  const isAvailable = await freighterService.checkConnection();
-  if (isAvailable && freighterService.isConnected) {
+  console.log('🚀 Inicializando CenVote DApp...');
+  
+  // Verificar si hay una sesión de wallet guardada
+  const isConnected = await freighterService.checkConnection();
+  if (isConnected && freighterService.publicKey) {
+    console.log('✅ Wallet ya conectada:', `${freighterService.publicKey.slice(0, 6)}...${freighterService.publicKey.slice(-6)}`);
+    
+    // Intentar reconectar automáticamente
     const result = await freighterService.connect();
-    if (!result.success) {
-      console.error('Error reconectando con Freighter:', result.message);
+    if (result.success) {
+      console.log('✅ Reconexión automática exitosa');
+    } else {
+      console.log('⚠️ No se pudo reconectar automáticamente:', result.message);
     }
+  } else {
+    console.log('ℹ️ No hay wallet conectada. Por favor conecta tu Freighter wallet.');
   }
 });
 </script>

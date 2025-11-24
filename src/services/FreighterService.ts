@@ -1,3 +1,16 @@
+// FreighterService.ts - Servicio para integración con Freighter Wallet
+// Usa la librería oficial @stellar/freighter-api
+
+import {
+    isConnected,
+    isAllowed,
+    setAllowed,
+    requestAccess,
+    signTransaction,
+    getAddress,
+    getNetworkDetails
+} from '@stellar/freighter-api';
+
 interface NetworkDetails {
     network: string;
     networkUrl: string;
@@ -5,13 +18,29 @@ interface NetworkDetails {
     sorobanRpcUrl?: string;
 }
 
+interface ConnectionResult {
+    success: boolean;
+    message: string;
+    publicKey?: string;
+}
+
+interface AccountBalance {
+    balance: string;
+    asset: string;
+}
+
 export class FreighterService {
     private static instance: FreighterService;
     private _isConnected = false;
     private _publicKey = '';
     private _networkDetails: NetworkDetails | null = null;
+    private readonly STORAGE_KEY_PUBLIC_KEY = 'freighter_public_key';
+    private readonly STORAGE_KEY_NETWORK = 'freighter_network';
+    private readonly EXPECTED_PUBLIC_KEY = 'GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV';
 
-    private constructor() {}
+    private constructor() {
+        this.loadFromStorage();
+    }
 
     static getInstance() {
         if (!FreighterService.instance) {
@@ -20,139 +49,257 @@ export class FreighterService {
         return FreighterService.instance;
     }
 
-    private waitForFreighter(): Promise<boolean> {
-        return new Promise((resolve) => {
-            let attempts = 0;
-            const maxAttempts = 10;
-            const check = () => {
-                const hasFreighter = !!(
-                    (window as any).freighter || 
-                    (window as any).freighterApi ||
-                    (window.self !== window.top && (window.parent as any).freighter)
-                );
-                console.log('Estado de Freighter:', {
-                    freighter: !!(window as any).freighter,
-                    freighterApi: !!(window as any).freighterApi,
-                    hasFreighter,
-                    attempt: attempts + 1
-                });
-                if (hasFreighter && (window as any).freighterApi) {
-                    resolve(true);
-                    return;
-                }
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(check, 1000);
-                } else {
-                    resolve(false);
-                }
-            };
-            check();
-        });
+    private loadFromStorage(): void {
+        if (typeof window === 'undefined') return;
+
+        try {
+            const savedPublicKey = localStorage.getItem(this.STORAGE_KEY_PUBLIC_KEY);
+            const savedNetwork = localStorage.getItem(this.STORAGE_KEY_NETWORK);
+
+            if (savedPublicKey && savedNetwork) {
+                this._publicKey = savedPublicKey;
+                console.log('✓ Datos de wallet cargados desde localStorage');
+            }
+        } catch (e) {
+            console.error('Error al cargar datos de localStorage:', e);
+        }
+    }
+
+    private saveToStorage(): void {
+        if (typeof window === 'undefined') return;
+
+        try {
+            if (this._publicKey) {
+                localStorage.setItem(this.STORAGE_KEY_PUBLIC_KEY, this._publicKey);
+            }
+            if (this._networkDetails) {
+                localStorage.setItem(this.STORAGE_KEY_NETWORK, this._networkDetails.network);
+            }
+        } catch (e) {
+            console.error('Error al guardar en localStorage:', e);
+        }
+    }
+
+    private clearStorage(): void {
+        if (typeof window === 'undefined') return;
+
+        try {
+            localStorage.removeItem(this.STORAGE_KEY_PUBLIC_KEY);
+            localStorage.removeItem(this.STORAGE_KEY_NETWORK);
+        } catch (e) {
+            console.error('Error al limpiar localStorage:', e);
+        }
+    }
+
+    async isFreighterInstalled(): Promise<boolean> {
+        if (typeof window === 'undefined') return false;
+
+        try {
+            // Verificar si Freighter está instalado usando la API oficial
+            const result = await isConnected();
+            console.log('🔍 Freighter instalado:', result.isConnected);
+            return result.isConnected;
+        } catch (error) {
+            console.log('❌ Freighter no está instalado');
+            return false;
+        }
     }
 
     async checkConnection(): Promise<boolean> {
         try {
             if (typeof window === 'undefined') {
-                console.log('Window no disponible');
                 return false;
             }
 
-            const isAvailable = await this.waitForFreighter();
-            if (!isAvailable) {
-                console.log('Freighter no está disponible después de esperar');
-                return false;
-            }
+            const result = await isConnected();
 
-            const freighterApi = (window as any).freighterApi;
-            const isConnected = await freighterApi.isConnected();
-            
             console.log('Estado de conexión:', {
-                isAvailable,
-                isConnected,
+                isConnected: result.isConnected,
                 hasPublicKey: !!this._publicKey
             });
 
-            this._isConnected = isConnected;
-            return isConnected;
+            this._isConnected = result.isConnected;
+            return result.isConnected;
         } catch (e) {
             console.error('Error al verificar la conexión:', e);
             return false;
         }
     }
 
-    async connect(): Promise<{ success: boolean; message: string }> {
+    async connect(): Promise<ConnectionResult> {
         try {
-            const isAvailable = await this.waitForFreighter();
-            if (!isAvailable) {
+            console.log('🔄 Iniciando conexión con Freighter...');
+
+            // Verificar si Freighter está instalado
+            const installed = await this.isFreighterInstalled();
+            if (!installed) {
                 return {
                     success: false,
-                    message: 'Freighter no está disponible. Por favor instala la extensión y recarga la página.'
+                    message: 'Freighter no está instalada. Por favor instala la extensión desde freighter.app'
                 };
             }
 
-            const freighterApi = (window as any).freighterApi;
-            
-            const { isAllowed } = await freighterApi.isAllowed();
-            if (!isAllowed) {
-                const result = await freighterApi.requestAccess();
-                if (!result) {
+            // Verificar si ya tenemos permiso
+            console.log('🔐 Verificando permisos...');
+            const allowedResult = await isAllowed();
+            const allowed = allowedResult.isAllowed;
+
+            if (!allowed) {
+                console.log('📝 Solicitando acceso a Freighter...');
+                const accessResult = await setAllowed();
+
+                if (!accessResult) {
                     return {
                         success: false,
-                        message: 'Permiso denegado'
+                        message: 'Acceso denegado. Por favor acepta la solicitud de conexión en Freighter.'
                     };
                 }
             }
 
-            const networkDetails = await freighterApi.getNetworkDetails();
-            this._networkDetails = networkDetails;
+            // Obtener la clave pública
+            console.log('🔑 Obteniendo dirección pública...');
+            const addressResult = allowed ? await getAddress() : await requestAccess();
+            const publicKey = addressResult.address;
+            this._publicKey = publicKey;
 
+            // Verificar si es la cuenta esperada
+            if (publicKey === this.EXPECTED_PUBLIC_KEY) {
+                console.log('✅ Cuenta verificada: Es la cuenta esperada!');
+                console.log(`   ${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`);
+            } else {
+                console.log('⚠️ Advertencia: La cuenta conectada no coincide con la esperada');
+                console.log('   Esperada:', this.EXPECTED_PUBLIC_KEY);
+                console.log('   Conectada:', publicKey);
+            }
+
+            // Obtener detalles de la red
+            console.log('🌐 Obteniendo detalles de la red...');
+            const networkDetails = await getNetworkDetails();
+            this._networkDetails = networkDetails as NetworkDetails;
+
+            console.log('Red detectada:', networkDetails.network);
+
+            // Validar que esté en TESTNET
             if (networkDetails.network !== 'TESTNET') {
                 return {
                     success: false,
-                    message: 'Por favor cambia a la red TESTNET en Freighter'
+                    message: `Por favor cambia a la red TESTNET en Freighter. Red actual: ${networkDetails.network}`
                 };
             }
 
-            const { address } = await freighterApi.getAddress();
-            this._publicKey = address;
             this._isConnected = true;
 
+            // Guardar en localStorage
+            this.saveToStorage();
+
+            console.log('✅ Wallet conectada:', `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`);
+
+            // Disparar evento de conexión
             const event = new CustomEvent('walletConnected', {
-                detail: { publicKey: address, network: networkDetails.network }
+                detail: {
+                    publicKey: publicKey,
+                    network: networkDetails.network,
+                    networkPassphrase: networkDetails.networkPassphrase
+                }
             });
             window.dispatchEvent(event);
 
             return {
                 success: true,
-                message: 'Wallet conectada exitosamente'
+                message: '✅ Wallet conectada exitosamente',
+                publicKey: publicKey
             };
         } catch (error) {
-            console.error('Error al conectar:', error);
+            console.error('❌ Error al conectar con Freighter:', error);
+
+            let errorMessage = 'Error al conectar con Freighter';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
             return {
                 success: false,
-                message: 'Error al conectar con Freighter'
+                message: errorMessage
             };
         }
+    }
+
+    async disconnect(): Promise<void> {
+        console.log('🔌 Desconectando wallet...');
+
+        this._isConnected = false;
+        this._publicKey = '';
+        this._networkDetails = null;
+
+        this.clearStorage();
+
+        // Disparar evento de desconexión
+        const event = new CustomEvent('walletDisconnected');
+        window.dispatchEvent(event);
+
+        console.log('✅ Wallet desconectada');
     }
 
     async signTransaction(xdr: string): Promise<{ signed?: string; error?: string }> {
         try {
             if (!this._isConnected || !this._networkDetails) {
-                return { error: 'Wallet no conectada' };
+                return { error: 'Wallet no conectada. Por favor conecta tu wallet primero.' };
             }
 
-            const freighterApi = (window as any).freighterApi;
-            const result = await freighterApi.signTransaction(xdr, {
+            console.log('✍️ Solicitando firma de transacción...');
+
+            const signedXdr = await signTransaction(xdr, {
                 networkPassphrase: this._networkDetails.networkPassphrase
             });
 
-            return { signed: result.signedXDR };
+            console.log('✅ Transacción firmada exitosamente');
+            return { signed: signedXdr };
         } catch (error) {
-            console.error('Error al firmar:', error);
-            return { 
-                error: error instanceof Error ? error.message : 'Error al firmar la transacción'
-            };
+            console.error('❌ Error al firmar transacción:', error);
+
+            let errorMessage = 'Error al firmar la transacción';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
+            return { error: errorMessage };
+        }
+    }
+
+    async getAccountBalance(): Promise<AccountBalance | null> {
+        try {
+            if (!this._publicKey) {
+                console.error('No hay clave pública disponible');
+                return null;
+            }
+
+            console.log('💰 Obteniendo balance de la cuenta...');
+
+            // Usar Horizon para obtener el balance
+            const horizonUrl = this._networkDetails?.networkUrl || 'https://horizon-testnet.stellar.org';
+            const response = await fetch(`${horizonUrl}/accounts/${this._publicKey}`);
+
+            if (!response.ok) {
+                throw new Error(`Error al obtener cuenta: ${response.status}`);
+            }
+
+            const accountData = await response.json();
+            const nativeBalance = accountData.balances.find(
+                (b: any) => b.asset_type === 'native'
+            );
+
+            if (nativeBalance) {
+                console.log('✅ Balance obtenido:', nativeBalance.balance, 'XLM');
+                return {
+                    balance: nativeBalance.balance,
+                    asset: 'XLM'
+                };
+            }
+
+            return null;
+        } catch (error) {
+            console.error('❌ Error al obtener balance:', error);
+            return null;
         }
     }
 
@@ -166,6 +313,10 @@ export class FreighterService {
 
     get networkDetails(): NetworkDetails | null {
         return this._networkDetails;
+    }
+
+    get expectedPublicKey(): string {
+        return this.EXPECTED_PUBLIC_KEY;
     }
 }
 
