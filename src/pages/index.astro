@@ -8,24 +8,24 @@ const CONTRACT_ID = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
 ---
 
 <Layout title="CenVote - Sistema de Votación Descentralizada">
-  <div class="min-h-screen bg-gray-100">
+  <div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-900 to-slate-950">
     <!-- Header/Navigation -->
-    <nav class="bg-white shadow-lg">
+    <nav class="backdrop-blur-xl bg-white/5 border-b border-white/10 sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex">
+        <div class="flex justify-between h-20">
+          <div class="flex items-center space-x-12">
             <div class="flex-shrink-0 flex items-center">
-              <h1 class="text-2xl font-bold text-primary">CenVote</h1>
+              <h1 class="text-3xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">CenVote</h1>
             </div>
-            <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <a href="/users" class="inline-flex items-center px-1 pt-1 text-gray-900 hover:text-primary">
-                Usuarios
+            <div class="hidden sm:flex sm:space-x-1">
+              <a href="/users" class="nav-link px-3 py-2 rounded-lg">
+                👥 Usuarios
               </a>
-              <a href="/candidates" class="inline-flex items-center px-1 pt-1 text-gray-900 hover:text-primary">
-                Candidatos
+              <a href="/candidates" class="nav-link px-3 py-2 rounded-lg">
+                🎯 Candidatos
               </a>
-              <a href="/surveys" class="inline-flex items-center px-1 pt-1 text-gray-900 hover:text-primary">
-                Encuestas
+              <a href="/surveys" class="nav-link px-3 py-2 rounded-lg">
+                📊 Encuestas
               </a>
             </div>
           </div>
@@ -37,38 +37,80 @@ const CONTRACT_ID = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
     </nav>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-      <div class="text-center">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">
+    <div class="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+      <!-- Hero Section -->
+      <div class="text-center mb-16 animate-fadeInUp">
+        <h2 class="text-5xl sm:text-6xl font-black mb-6 header-gradient">
           Bienvenido a CenVote
         </h2>
-        <p class="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-          Sistema de votación descentralizado seguro y transparente
+        <p class="mt-6 max-w-3xl mx-auto text-xl text-gray-300 font-light">
+          La plataforma de votación descentralizada más segura y transparente
         </p>
+        <div class="mt-8 flex justify-center gap-4">
+          <a href="/surveys" class="btn-primary">
+            ✨ Comenzar
+          </a>
+          <a href="/candidates" class="btn-secondary">
+            📖 Conocer Más
+          </a>
+        </div>
+      </div>
 
-        <!-- Passkey + Freighter Authentication Section -->
-        <div class="mt-12 mb-12 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-8 border-2 border-blue-200">
-          <h3 class="text-2xl font-bold text-gray-900 mb-6">🔐 Autenticación Segura</h3>
-          <p class="text-gray-600 mb-8">Autentica usando Passkey (WebAuthn) + Freighter Wallet</p>
+      <!-- Authentication Section -->
+      <div class="card-glass backdrop-blur-lg bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/10 border-2 border-white/20 rounded-3xl p-12 mb-16 shadow-2xl">
+        <h3 class="text-3xl font-bold text-white mb-4 flex items-center justify-center gap-3">
+          🔐 Autenticación Segura
+        </h3>
+        <p class="text-gray-300 text-center mb-8 text-lg">Autentica usando Passkey (WebAuthn) + Freighter Wallet para máxima seguridad</p>
+        <div class="bg-white/5 rounded-2xl p-8 border border-white/10">
           <PasskeyConnector />
         </div>
+      </div>
 
-        <div class="mt-10 grid gap-6 md:grid-cols-3">
-          <a href="/users"
-            class="p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestión de Usuarios</h3>
-            <p class="text-gray-600">Registra y administra usuarios en el sistema</p>
-          </a>
-          <a href="/candidates"
-            class="p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestión de Candidatos</h3>
-            <p class="text-gray-600">Administra los candidatos para las votaciones</p>
-          </a>
-          <a href="/surveys"
-            class="p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestión de Encuestas</h3>
-            <p class="text-gray-600">Crea y administra encuestas de votación</p>
-          </a>
+      <!-- Features Grid -->
+      <div class="grid md:grid-cols-3 gap-8 mb-16">
+        <!-- Users Card -->
+        <a href="/users" class="card-gradient group hover:scale-105 transition-transform duration-300 p-8 rounded-2xl border border-white/20 backdrop-blur-xl hover:border-blue-500/50">
+          <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">👥</div>
+          <h3 class="text-2xl font-bold text-white mb-3">Gestión de Usuarios</h3>
+          <p class="text-gray-400 text-lg">Registra y administra usuarios en el sistema con total seguridad</p>
+          <div class="mt-6 text-blue-400 group-hover:translate-x-2 transition-transform">→ Ver más</div>
+        </a>
+
+        <!-- Candidates Card -->
+        <a href="/candidates" class="card-gradient group hover:scale-105 transition-transform duration-300 p-8 rounded-2xl border border-white/20 backdrop-blur-xl hover:border-purple-500/50">
+          <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🎯</div>
+          <h3 class="text-2xl font-bold text-white mb-3">Gestión de Candidatos</h3>
+          <p class="text-gray-400 text-lg">Administra candidatos para las votaciones de forma descentralizada</p>
+          <div class="mt-6 text-purple-400 group-hover:translate-x-2 transition-transform">→ Ver más</div>
+        </a>
+
+        <!-- Surveys Card -->
+        <a href="/surveys" class="card-gradient group hover:scale-105 transition-transform duration-300 p-8 rounded-2xl border border-white/20 backdrop-blur-xl hover:border-pink-500/50">
+          <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">📊</div>
+          <h3 class="text-2xl font-bold text-white mb-3">Gestión de Encuestas</h3>
+          <p class="text-gray-400 text-lg">Crea y administra encuestas de votación en tiempo real</p>
+          <div class="mt-6 text-pink-400 group-hover:translate-x-2 transition-transform">→ Ver más</div>
+        </a>
+      </div>
+
+      <!-- Stats Section -->
+      <div class="grid md:grid-cols-4 gap-6 mb-16">
+        <div class="card-glass p-6 text-center rounded-2xl">
+          <div class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent mb-2">100%</div>
+          <p class="text-gray-400">Seguro</p>
+        </div>
+        <div class="card-glass p-6 text-center rounded-2xl">
+          <div class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent mb-2">24/7</div>
+          <p class="text-gray-400">Disponible</p>
+        </div>
+        <div class="card-glass p-6 text-center rounded-2xl">
+          <div class="text-4xl font-bold bg-gradient-to-r from-pink-400 to-pink-600 bg-clip-text text-transparent mb-2">∞</div>
+          <p class="text-gray-400">Escalable</p>
+        </div>
+        <div class="card-glass p-6 text-center rounded-2xl">
+          <div class="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-emerald-600 bg-clip-text text-transparent mb-2">⚡</div>
+          <p class="text-gray-400">Rápido</p>
         </div>
       </div>
     </div>

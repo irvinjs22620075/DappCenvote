@@ -1,45 +1,52 @@
----
----
-// El servicio se importará en el lado del cliente
----
 
 <div class="flex items-center space-x-4" id="walletConnector">
   <button 
     id="connectWalletBtn"
-    class="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+    class="relative px-6 py-2.5 rounded-lg font-semibold text-white transition-all duration-300 overflow-hidden group"
   >
-    Conectar Wallet
+    <div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 group-hover:from-blue-700 group-hover:to-blue-800 transition-all duration-300"></div>
+    <div class="absolute inset-0 opacity-0 group-hover:opacity-100 bg-blue-500/20 transition-opacity duration-300"></div>
+    <span class="relative inline-flex items-center gap-2">
+      🔗 <span>Conectar Wallet</span>
+    </span>
   </button>
-  <p id="walletStatus" class="text-sm text-gray-600 hidden"></p>
+  <div id="walletStatus" class="hidden items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/20 border border-emerald-500/50 group">
+    <span class="relative inline-flex h-3 w-3">
+      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+      <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+    </span>
+    <p id="walletAddress" class="text-sm font-semibold text-emerald-300"></p>
+  </div>
 </div>
 
 <script>
 import { freighterService } from '../services/FreighterService';
 
-const walletConnector = document.getElementById('walletConnector');
-const connectButton = document.getElementById('connectWalletBtn');
-const statusElement = document.getElementById('walletStatus');
+const connectButton = document.getElementById('connectWalletBtn') as HTMLButtonElement | null;
+const statusElement = document.getElementById('walletStatus') as HTMLElement | null;
 
-async function updateUI(isConnected: boolean, publicKey?: string) {
+async function updateUI(isConnected: boolean, publicKey?: string): Promise<void> {
   if (!connectButton || !statusElement) return;
 
   if (isConnected && publicKey) {
-    connectButton.classList.remove('bg-primary', 'hover:bg-blue-700');
-    connectButton.classList.add('bg-green-500', 'hover:bg-green-600');
-    connectButton.textContent = 'Wallet Conectada';
+    const walletAddress = document.getElementById('walletAddress') as HTMLElement | null;
+    connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-700 group-hover:from-emerald-700 group-hover:to-emerald-800 transition-all duration-300"></div><span class="relative inline-flex items-center gap-2">✅ <span>Conectada</span></span>`;
+    connectButton.disabled = true;
     
-    statusElement.textContent = `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`;
+    if (walletAddress) {
+      walletAddress.textContent = `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`;
+    }
     statusElement.classList.remove('hidden');
+    statusElement.classList.add('flex');
   } else {
-    connectButton.classList.remove('bg-green-500', 'hover:bg-green-600');
-    connectButton.classList.add('bg-primary', 'hover:bg-blue-700');
-    connectButton.textContent = 'Conectar Wallet';
-    
+    connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 group-hover:from-blue-700 group-hover:to-blue-800 transition-all duration-300"></div><div class="absolute inset-0 opacity-0 group-hover:opacity-100 bg-blue-500/20 transition-opacity duration-300"></div><span class="relative inline-flex items-center gap-2">🔗 <span>Conectar Wallet</span></span>`;
+    connectButton.disabled = false;
     statusElement.classList.add('hidden');
+    statusElement.classList.remove('flex');
   }
 }
 
-async function handleConnect() {
+async function handleConnect(): Promise<void> {
   try {
     // Verificar si Freighter está instalado
     if (!(window as any).freighter) {
@@ -82,7 +89,7 @@ connectButton?.addEventListener('click', handleConnect);
 
 // Escuchar cambios en la wallet
 window.addEventListener('walletConnected', ((event: CustomEvent) => {
-  const { publicKey } = event.detail;
+  const { publicKey } = event.detail as { publicKey: string };
   updateUI(true, publicKey);
 }) as EventListener);
 </script>
