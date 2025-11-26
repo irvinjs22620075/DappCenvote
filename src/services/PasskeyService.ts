@@ -70,7 +70,7 @@ function validateWebAuthnSupport(): void {
  */
 export async function registerPasskey(opts: RegisterOptions): Promise<RegisterResponse> {
   validateWebAuthnSupport();
-  
+
   if (!opts.id || !opts.name) {
     throw new Error('ID y nombre de usuario son requeridos');
   }
@@ -96,8 +96,7 @@ export async function registerPasskey(opts: RegisterOptions): Promise<RegisterRe
     const publicKey: PublicKeyCredentialCreationOptions = {
       challenge: new Uint8Array(challenge),
       rp: {
-        name: 'CenVote dApp',
-        id: window.location.hostname
+        name: 'CenVote dApp'
       },
       user: {
         id: new TextEncoder().encode(opts.id),
@@ -118,7 +117,7 @@ export async function registerPasskey(opts: RegisterOptions): Promise<RegisterRe
     } as any;
 
     console.log('[PasskeyService] Registrando passkey...');
-    
+
     const cred = (await navigator.credentials.create({
       publicKey
     } as any)) as PublicKeyCredential | null;
@@ -149,7 +148,7 @@ export async function registerPasskey(opts: RegisterOptions): Promise<RegisterRe
     }
 
     const result = await verifyResponse.json();
-    
+
     // Guardar token en localStorage
     if (result.userId) {
       localStorage.setItem('passkey_user_id', result.userId);
@@ -167,7 +166,7 @@ export async function registerPasskey(opts: RegisterOptions): Promise<RegisterRe
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido';
-    
+
     if (message.includes('User cancelled')) {
       throw new Error('El registro fue cancelado');
     } else if (message.includes('NotAllowedError')) {
@@ -175,7 +174,7 @@ export async function registerPasskey(opts: RegisterOptions): Promise<RegisterRe
     } else if (message.includes('NotSupportedError')) {
       throw new Error('Este dispositivo no soporta passkeys');
     }
-    
+
     throw error;
   }
 }
@@ -239,7 +238,7 @@ export async function authenticatePasskey(
     }
 
     const result = await verifyResponse.json();
-    
+
     // Guardar token de sesión
     if (result.authToken) {
       localStorage.setItem('auth_token', result.authToken);
@@ -268,7 +267,7 @@ export async function authenticatePasskey(
     } else if (message.includes('NotSupportedError')) {
       throw new Error('Este dispositivo no soporta passkeys');
     }
-    
+
     throw error;
   }
 }
@@ -281,10 +280,10 @@ export async function isPasskeyAvailable(): Promise<boolean> {
     if (!window.PublicKeyCredential) {
       return false;
     }
-    
+
     const isUserVerifyingPlatformAuthenticatorAvailable =
       await (PublicKeyCredential as any).isUserVerifyingPlatformAuthenticatorAvailable?.();
-    
+
     return isUserVerifyingPlatformAuthenticatorAvailable !== false;
   } catch {
     return false;

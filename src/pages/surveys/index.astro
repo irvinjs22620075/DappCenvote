@@ -3,63 +3,87 @@ import Layout from '../../layouts/Layout.astro';
 ---
 
 <Layout title="Gestión de Encuestas - CenVote">
-  <div class="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-4xl mx-auto">
-      <div class="bg-white rounded-lg shadow-lg p-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-8">Gestión de Encuestas</h1>
+  <div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-900 to-slate-950 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="card-glass backdrop-blur-lg p-8 rounded-3xl border-2 border-white/20">
+        <h1 class="text-4xl font-black header-gradient mb-8">📊 Gestión de Encuestas</h1>
         
         <!-- Formulario de Encuesta -->
-        <form id="surveyForm" class="space-y-6">
+        <form id="surveyForm" class="space-y-6 mb-12">
+          <input type="hidden" id="surveyId" name="surveyId">
           <div class="grid grid-cols-1 gap-6">
             <div>
-              <label for="name" class="block text-sm font-medium text-gray-700">Nombre de la Encuesta</label>
+              <label for="name" class="block text-sm font-semibold text-white mb-2">Nombre de la Encuesta</label>
               <input type="text" id="name" name="name" required
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                class="input-modern">
             </div>
             <div>
-              <label for="description" class="block text-sm font-medium text-gray-700">Descripción</label>
+              <label for="description" class="block text-sm font-semibold text-white mb-2">Descripción</label>
               <textarea id="description" name="description" rows="4" required
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"></textarea>
+                class="input-modern resize-none"></textarea>
             </div>
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <label for="start_date" class="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
+                <label for="start_date" class="block text-sm font-semibold text-white mb-2">Fecha de Inicio</label>
                 <input type="datetime-local" id="start_date" name="start_date" required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                  class="input-modern">
               </div>
               <div>
-                <label for="end_date" class="block text-sm font-medium text-gray-700">Fecha de Fin</label>
+                <label for="end_date" class="block text-sm font-semibold text-white mb-2">Fecha de Fin</label>
                 <input type="datetime-local" id="end_date" name="end_date" required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                  class="input-modern">
               </div>
             </div>
             <div>
-              <label for="candidates" class="block text-sm font-medium text-gray-700">Candidatos</label>
-              <select multiple id="candidates" name="candidates"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+              <label for="candidates" class="block text-sm font-semibold text-white mb-2">Candidatos (mantén presionado Ctrl/Cmd para seleccionar múltiples)</label>
+              <select multiple id="candidates" name="candidates" size="5"
+                class="input-modern h-auto">
                 <!-- Los candidatos se cargarán aquí -->
               </select>
             </div>
           </div>
-          <div class="flex justify-end space-x-4">
+          <div class="flex justify-end space-x-4 pt-4">
             <button type="button" id="connectWalletBtn"
-              class="bg-primary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-              Conectar Wallet
+              class="btn-primary">
+              🔗 Conectar Wallet
+            </button>
+            <button type="button" id="cancelBtn" style="display: none;"
+              class="px-6 py-2 rounded-lg font-semibold transition-all duration-300 bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800">
+              ❌ Cancelar
             </button>
             <button type="submit"
-              class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-              Crear Encuesta
+              class="btn-accent">
+              <span id="submitBtnText">✨ Crear Encuesta</span>
             </button>
           </div>
         </form>
 
         <!-- Lista de Encuestas -->
-        <div class="mt-8">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Encuestas Activas</h2>
-          <div class="grid gap-6 md:grid-cols-2" id="surveysList">
+        <div class="mt-12">
+          <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <span class="text-3xl">🗳️</span> Encuestas Activas
+          </h2>
+          <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3" id="surveysList">
             <!-- Las encuestas se cargarán aquí -->
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Votación -->
+  <div id="voteModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="card-glass max-w-2xl w-full p-8 rounded-3xl border-2 border-white/20 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-start mb-6">
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2" id="modalSurveyName"></h2>
+          <p class="text-gray-300" id="modalSurveyDescription"></p>
+        </div>
+        <button onclick="closeVoteModal()" class="text-white hover:text-red-400 text-2xl">✕</button>
+      </div>
+      
+      <div id="voteContent">
+        <!-- Se cargará dinámicamente -->
       </div>
     </div>
   </div>
@@ -67,21 +91,66 @@ import Layout from '../../layouts/Layout.astro';
 
 <script>
   let publicKey = null;
+  let isEditing = false;
+  let editingId = null;
+  let currentSurveyId = null;
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
 
-  // Conexión con Freighter
+  // Auto-detectar wallet conectada
+  async function autoDetectWallet() {
+    if (freighterService.publicKey) {
+      publicKey = freighterService.publicKey;
+      updateWalletButton(true);
+      console.log('✅ Wallet auto-detectada:', publicKey.slice(0, 8) + '...');
+    } else {
+      const isConnected = await freighterService.checkConnection();
+      if (isConnected) {
+        const result = await freighterService.connect();
+        if (result.success) {
+          publicKey = result.publicKey;
+          updateWalletButton(true);
+          console.log('✅ Wallet reconectada automáticamente');
+        }
+      }
+    }
+  }
+
+  // Actualizar botón de wallet
+  function updateWalletButton(connected) {
+    const btn = document.getElementById('connectWalletBtn');
+    if (connected && publicKey) {
+      btn.textContent = `✅ ${publicKey.slice(0, 6)}...${publicKey.slice(-4)}`;
+      btn.classList.remove('btn-primary');
+      btn.classList.add('bg-green-600', 'hover:bg-green-700');
+    } else {
+      btn.textContent = '🔗 Conectar Wallet';
+      btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+      btn.classList.add('btn-primary');
+    }
+  }
+
+  // Escuchar eventos de wallet
+  window.addEventListener('walletConnected', (event: any) => {
+    publicKey = event.detail.publicKey;
+    updateWalletButton(true);
+    console.log('📡 Evento de wallet conectada recibido');
+  });
+
+  window.addEventListener('walletDisconnected', () => {
+    publicKey = null;
+    updateWalletButton(false);
+    console.log('📡 Evento de wallet desconectada recibido');
+  });
+
   async function connectWallet() {
     try {
       const result = await freighterService.connect();
       
       if (result.success) {
         publicKey = result.publicKey;
-        const btn = document.getElementById('connectWalletBtn');
-        btn.textContent = 'Wallet Conectada';
-        btn.classList.remove('bg-primary');
-        btn.classList.add('bg-green-500');
+        updateWalletButton(true);
         
         if (publicKey === freighterService.expectedPublicKey) {
             console.log('✅ Cuenta verificada en formulario de encuestas');
@@ -104,7 +173,7 @@ import Layout from '../../layouts/Layout.astro';
       const selectElement = document.getElementById('candidates');
       
       selectElement.innerHTML = candidates.map(candidate => `
-        <option value="${candidate._id}">${candidate.name} (${candidate.rfc})</option>
+        <option value="${candidate._id}" class="py-2">${candidate.name} (${candidate.rfc})</option>
       `).join('');
     } catch (error) {
       console.error('Error al cargar candidatos:', error);
@@ -118,34 +187,295 @@ import Layout from '../../layouts/Layout.astro';
       const surveys = await response.json();
       const surveysList = document.getElementById('surveysList');
       
-      surveysList.innerHTML = surveys.map(survey => `
-        <div class="bg-white overflow-hidden shadow-sm rounded-lg">
-          <div class="p-6">
-            <h3 class="text-lg font-semibold text-gray-900">${survey.name}</h3>
-            <p class="mt-2 text-gray-600">${survey.description}</p>
-            <div class="mt-4">
-              <p class="text-sm text-gray-500">Inicio: ${new Date(survey.start_date).toLocaleString()}</p>
-              <p class="text-sm text-gray-500">Fin: ${new Date(survey.end_date).toLocaleString()}</p>
+      if (surveys.length === 0) {
+        surveysList.innerHTML = `
+          <div class="col-span-full text-center text-gray-400 py-12">
+            No hay encuestas creadas aún
+          </div>
+        `;
+        return;
+      }
+      
+      surveysList.innerHTML = surveys.map(survey => {
+        const startDate = new Date(survey.start_date);
+        const endDate = new Date(survey.end_date);
+        const now = new Date();
+        const isActive = now >= startDate && now <= endDate;
+        
+        return `
+          <div class="card-gradient p-6 rounded-2xl border border-white/20 hover:border-white/40 transition-all">
+            <div class="flex items-start justify-between mb-4">
+              <h3 class="text-xl font-bold text-white">${survey.name}</h3>
+              <span class="px-3 py-1 rounded-full text-xs font-semibold ${isActive ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}">
+                ${isActive ? '🟢 Activa' : '⚫ Inactiva'}
+              </span>
             </div>
-            <div class="mt-4 flex justify-end space-x-2">
+            <p class="text-gray-300 text-sm mb-4 line-clamp-2">${survey.description}</p>
+            <div class="space-y-2 mb-4">
+              <p class="text-xs text-gray-400">
+                📅 Inicio: ${startDate.toLocaleString('es-MX')}
+              </p>
+              <p class="text-xs text-gray-400">
+                📅 Fin: ${endDate.toLocaleString('es-MX')}
+              </p>
+              <p class="text-xs text-purple-300">
+                👥 ${survey.candidates ? survey.candidates.length : 0} candidatos
+              </p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="openVoteModal('${survey._id}')"
+                class="flex-1 btn-primary text-sm py-2 ${!isActive ? 'opacity-50 cursor-not-allowed' : ''}"
+                ${!isActive ? 'disabled' : ''}>
+                🗳️ Votar
+              </button>
               <button onclick="editSurvey('${survey._id}')"
-                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
-                Editar
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded-lg transition-all">
+                ✏️ Editar
               </button>
               <button onclick="deleteSurvey('${survey._id}')"
-                class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">
-                Eliminar
+                class="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-4 rounded-lg transition-all">
+                🗑️ Eliminar
               </button>
             </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     } catch (error) {
       console.error('Error al cargar encuestas:', error);
     }
   }
 
-  // Crear encuesta
+  // Abrir modal de votación
+  async function openVoteModal(surveyId) {
+    currentSurveyId = surveyId;
+    
+    // Verificar que el usuario tenga wallet conectada
+    if (!publicKey) {
+      const shouldConnect = confirm('Necesitas conectar tu wallet para votar. ¿Conectar ahora?');
+      if (shouldConnect) {
+        await connectWallet();
+        if (!publicKey) return;
+      } else {
+        return;
+      }
+    }
+    
+    try {
+      // Cargar información de la encuesta
+      const surveyResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}`);
+      const survey = await surveyResponse.json();
+      
+      // Verificar si ya votó
+      const voteCheckResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}/check-vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voterAddress: publicKey })
+      });
+      const { hasVoted } = await voteCheckResponse.json();
+      
+      // Cargar resultados
+      const resultsResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}/results`);
+      const results = await resultsResponse.json();
+      
+      // Mostrar en modal
+      document.getElementById('modalSurveyName').textContent = survey.name;
+      document.getElementById('modalSurveyDescription').textContent = survey.description;
+      
+      const voteContent = document.getElementById('voteContent');
+      
+      if (hasVoted) {
+        // Mostrar solo resultados si ya votó
+        voteContent.innerHTML = `
+          <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
+            <p class="text-yellow-300 font-semibold">✓ Ya has votado en esta encuesta</p>
+          </div>
+          ${renderResults(results)}
+        `;
+      } else {
+        // Mostrar opciones de voto
+        voteContent.innerHTML = `
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Selecciona tu candidato:</h3>
+            <div class="space-y-3">
+              ${results.results.map(result => `
+                <button onclick="vote('${result.candidateId}')"
+                  class="w-full text-left p-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 hover:border-blue-400 transition-all group">
+                  <div class="flex items-center justify-between">
+                    <span class="text-white font-semibold group-hover:text-blue-300">${result.candidateName}</span>
+                    <span class="text-2xl group-hover:scale-110 transition-transform">👍</span>
+                  </div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          <div class="border-t border-white/20 pt-6">
+            <h4 class="text-sm font-semibold text-gray-400 mb-3">Resultados parciales:</h4>
+            ${renderResults(results)}
+          </div>
+        `;
+      }
+      
+      document.getElementById('voteModal').classList.remove('hidden');
+    } catch (error) {
+      console.error('Error al abrir modal:', error);
+      alert('Error al cargar información de la encuesta');
+    }
+  }
+
+  // Renderizar resultados
+  function renderResults(results) {
+    if (results.totalVotes === 0) {
+      return '<p class="text-gray-400 text-sm">No hay votos aún</p>';
+    }
+    
+    return `
+      <div class="space-y-3">
+        <p class="text-sm text-gray-400 mb-3">Total de votos: <span class="text-white font-bold">${results.totalVotes}</span></p>
+        ${results.results.map(result => `
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-white text-sm font-medium">${result.candidateName}</span>
+              <span class="text-gray-300 text-sm">${result.votes} votos (${result.percentage}%)</span>
+            </div>
+            <div class="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+              <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all duration-500" 
+                   style="width: ${result.percentage}%"></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // Votar
+  async function vote(candidateId) {
+    if (!confirm('¿Confirmas tu voto? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:3000/api/surveys/${currentSurveyId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidateId,
+          voterAddress: publicKey
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert('¡Voto registrado exitosamente!');
+        // Recargar el modal para mostrar resultados
+        openVoteModal(currentSurveyId);
+      } else {
+        alert(data.error || 'Error al registrar voto');
+      }
+    } catch (error) {
+      console.error('Error al votar:', error);
+      alert('Error al registrar voto');
+    }
+  }
+
+  // Cerrar modal
+  function closeVoteModal() {
+    document.getElementById('voteModal').classList.add('hidden');
+    currentSurveyId = null;
+  }
+
+  // Editar encuesta
+  async function editSurvey(id) {
+    try {
+      const response = await fetch(`http://localhost:3000/api/surveys/${id}`);
+      const survey = await response.json();
+      
+      // Llenar el formulario
+      document.getElementById('surveyId').value = survey._id;
+      document.getElementById('name').value = survey.name;
+      document.getElementById('description').value = survey.description;
+      
+      // Formatear fechas para datetime-local
+      const startDate = new Date(survey.start_date);
+      const endDate = new Date(survey.end_date);
+      document.getElementById('start_date').value = formatDateTimeLocal(startDate);
+      document.getElementById('end_date').value = formatDateTimeLocal(endDate);
+      
+      // Seleccionar candidatos
+      const select = document.getElementById('candidates');
+      Array.from(select.options).forEach(option => {
+        option.selected = survey.candidates.includes(option.value);
+      });
+      
+      publicKey = survey.created_by;
+      
+      // Cambiar el botón de submit
+      isEditing = true;
+      editingId = id;
+      document.getElementById('submitBtnText').textContent = '💾 Actualizar Encuesta';
+      document.getElementById('cancelBtn').style.display = 'inline-block';
+      
+      // Scroll al formulario
+      document.getElementById('surveyForm').scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+      console.error('Error al cargar encuesta:', error);
+      alert('Error al cargar datos de la encuesta');
+    }
+  }
+
+  // Eliminar encuesta
+  async function deleteSurvey(id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta encuesta?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:3000/api/surveys/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        alert('Encuesta eliminada exitosamente');
+        loadSurveys();
+      } else {
+        throw new Error('Error al eliminar encuesta');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al eliminar encuesta');
+    }
+  }
+
+  // Cancelar edición
+  function cancelEdit() {
+    isEditing = false;
+    editingId = null;
+    document.getElementById('surveyForm').reset();
+    document.getElementById('surveyId').value = '';
+    document.getElementById('submitBtnText').textContent = '✨ Crear Encuesta';
+    document.getElementById('cancelBtn').style.display = 'none';
+    
+    // Restaurar la wallet conectada si existe
+    if (freighterService.publicKey) {
+      publicKey = freighterService.publicKey;
+      updateWalletButton(true);
+    } else {
+      publicKey = null;
+      updateWalletButton(false);
+    }
+  }
+
+  // Formatear fecha para input datetime-local
+  function formatDateTimeLocal(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  // Crear o actualizar encuesta
   document.getElementById('surveyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!publicKey) {
@@ -155,6 +485,11 @@ import Layout from '../../layouts/Layout.astro';
 
     const formData = new FormData(e.target);
     const selectedCandidates = Array.from(document.getElementById('candidates').selectedOptions).map(option => option.value);
+    
+    if (selectedCandidates.length === 0) {
+      alert('Debes seleccionar al menos un candidato');
+      return;
+    }
     
     const surveyData = {
       name: formData.get('name'),
@@ -166,8 +501,14 @@ import Layout from '../../layouts/Layout.astro';
     };
 
     try {
-      const response = await fetch('http://localhost:3000/api/surveys', {
-        method: 'POST',
+      const url = isEditing 
+        ? `http://localhost:3000/api/surveys/${editingId}`
+        : 'http://localhost:3000/api/surveys';
+        
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -175,43 +516,35 @@ import Layout from '../../layouts/Layout.astro';
       });
 
       if (response.ok) {
-        alert('Encuesta creada exitosamente');
-        e.target.reset();
+        alert(isEditing ? 'Encuesta actualizada exitosamente' : 'Encuesta creada exitosamente');
+        cancelEdit();
         loadSurveys();
       } else {
-        throw new Error('Error al crear encuesta');
+        throw new Error('Error al guardar encuesta');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error al crear encuesta');
+      alert('Error al guardar encuesta');
     }
   });
 
-  // Eliminar encuesta
-  async function deleteSurvey(id) {
-    if (confirm('¿Estás seguro de que deseas eliminar esta encuesta?')) {
-      try {
-        const response = await fetch(`http://localhost:3000/api/surveys/${id}`, {
-          method: 'DELETE'
-        });
-
-        if (response.ok) {
-          alert('Encuesta eliminada exitosamente');
-          loadSurveys();
-        } else {
-          throw new Error('Error al eliminar encuesta');
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Error al eliminar encuesta');
-      }
-    }
-  }
-
   // Event Listeners
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+    document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
+    
+    // Auto-detectar wallet al cargar
+    await autoDetectWallet();
+    
     loadCandidateOptions();
     loadSurveys();
   });
+
+  // Hacer funciones globales
+  window.editSurvey = editSurvey;
+  window.deleteSurvey = deleteSurvey;
+  window.openVoteModal = openVoteModal;
+  window.closeVoteModal = closeVoteModal;
+  window.vote = vote;
 </script>
+</Layout>

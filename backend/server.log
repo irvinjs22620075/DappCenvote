@@ -1,0 +1,5 @@
+nohup: ignoring input
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+🚀 Server running on port 3000
+📱 Passkey API: http://localhost:3000/api/passkey/
+🔍 Debug: http://localhost:3000/api/debug

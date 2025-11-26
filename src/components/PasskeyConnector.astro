@@ -17,14 +17,32 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
     </div>
     
     <div class="passkey-actions grid gap-3">
+      <div class="input-group mb-2">
+        <label for="username-input" class="block text-sm font-medium text-gray-300 mb-1">Nombre de Usuario</label>
+        <input 
+          type="text" 
+          id="username-input" 
+          class="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+          placeholder="Ej. usuario123"
+        />
+      </div>
+
       <button id="register-btn" class="btn-primary w-full">
         📱 Registrar Passkey
       </button>
       <button id="authenticate-btn" class="btn-secondary w-full">
         ✅ Autenticar
       </button>
-      <button id="clear-btn" class="btn-danger w-full">
-        🗑️ Limpiar Sesión
+      
+      <div id="credentials-list" class="mt-4 hidden">
+        <h3 class="text-sm font-bold text-gray-300 mb-2">Mis Passkeys</h3>
+        <ul id="passkeys-ul" class="space-y-2 text-sm">
+          <!-- Lista de passkeys se insertará aquí -->
+        </ul>
+      </div>
+
+      <button id="clear-btn" class="btn-danger w-full mt-2">
+        🗑️ Limpiar Sesión Local
       </button>
     </div>
 
@@ -96,8 +114,8 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
       const publicKey = {
         challenge: new Uint8Array(challenge),
         rp: {
-          name: 'CenVote dApp',
-          id: window.location.hostname
+          name: 'CenVote dApp'
+          // id: eliminado para evitar error "Invalid domain" (usa el dominio actual por defecto)
         },
         user: {
           id: new TextEncoder().encode(opts.id),
@@ -300,18 +318,110 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
     }
   }
 
+  // Función para listar credenciales
+  async function listCredentials(username) {
+    try {
+      const response = await fetch(`${API_BASE}/passkey/list/${username}`);
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (e) {
+      console.error('Error listing credentials:', e);
+      return [];
+    }
+  }
+
+  // Función para eliminar credencial
+  async function deleteCredential(id) {
+    try {
+      const response = await fetch(`${API_BASE}/passkey/${id}`, { method: 'DELETE' });
+      return response.ok;
+    } catch (e) {
+      console.error('Error deleting credential:', e);
+      return false;
+    }
+  }
+
+  // Renderizar lista de passkeys
+  async function renderCredentialsList(username) {
+    const listContainer = document.getElementById('credentials-list');
+    const ul = document.getElementById('passkeys-ul');
+    if (!listContainer || !ul) return;
+
+    if (!username) {
+      listContainer.classList.add('hidden');
+      return;
+    }
+
+    const credentials = await listCredentials(username);
+    
+    if (credentials.length === 0) {
+      listContainer.classList.add('hidden');
+      return;
+    }
+
+    listContainer.classList.remove('hidden');
+    ul.innerHTML = '';
+
+    credentials.forEach(cred => {
+      const li = document.createElement('li');
+      li.className = 'flex items-center justify-between bg-white/5 p-2 rounded border border-white/10';
+      
+      const date = new Date(cred.created_at).toLocaleDateString();
+      li.innerHTML = `
+        <span class="text-xs text-gray-300 font-mono" title="${cred.credentialId}">
+          🔑 ...${cred.credentialId.slice(-8)} <span class="text-gray-500">(${date})</span>
+        </span>
+        <button class="delete-btn text-red-400 hover:text-red-300 p-1" data-id="${cred.id}">
+          🗑️
+        </button>
+      `;
+      ul.appendChild(li);
+    });
+
+    // Agregar listeners para borrar
+    ul.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-id');
+        if (confirm('¿Eliminar este passkey?')) {
+          const success = await deleteCredential(id);
+          if (success) {
+            showStatus('✅ Passkey eliminado', 'success');
+            renderCredentialsList(username);
+          } else {
+            showStatus('❌ Error al eliminar', 'error');
+          }
+        }
+      });
+    });
+  }
+
   // === SETUP DE EVENTOS ===
   const registerBtn = document.getElementById('register-btn');
   const authenticateBtn = document.getElementById('authenticate-btn');
   const clearBtn = document.getElementById('clear-btn');
   const statusDiv = document.getElementById('status');
   const debugOutput = document.getElementById('debug-output');
+  const usernameInput = document.getElementById('username-input');
+
+  // Cargar usuario guardado
+  if (usernameInput) {
+    const savedUser = localStorage.getItem('passkey_username');
+    if (savedUser) {
+      usernameInput.value = savedUser;
+      renderCredentialsList(savedUser);
+    }
+    
+    usernameInput.addEventListener('change', (e) => {
+      renderCredentialsList(e.target.value);
+    });
+  }
 
   console.log('[PasskeyConnector] Elementos encontrados:', {
     registerBtn: !!registerBtn,
     authenticateBtn: !!authenticateBtn,
     clearBtn: !!clearBtn,
-    statusDiv: !!statusDiv
+    statusDiv: !!statusDiv,
+    usernameInput: !!usernameInput
   });
 
   function showStatus(message, type) {
@@ -337,16 +447,17 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
   if (registerBtn) {
     registerBtn.addEventListener('click', async () => {
       try {
+        const userName = usernameInput?.value?.trim();
+        
+        if (!userName) {
+          showStatus('❌ Ingresa un nombre de usuario primero', 'error');
+          usernameInput?.focus();
+          return;
+        }
+
         registerBtn.disabled = true;
         showStatus('⏳ Registrando passkey...', 'info');
         appendDebug('[REGISTER] Iniciando registro de passkey...');
-
-        const userName = prompt('Ingresa tu nombre de usuario:', 'Usuario') || 'Usuario';
-        if (!userName) {
-          showStatus('❌ Se requiere un nombre de usuario', 'error');
-          registerBtn.disabled = false;
-          return;
-        }
 
         const result = await registerPasskey({
           id: `user-${Date.now()}`,
@@ -357,6 +468,9 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
         appendDebug(`[REGISTER] ✓ Credencial registrada: ${result.id.substring(0, 20)}...`);
         showStatus(`✅ Passkey registrado para ${userName}. Puedes autenticarte ahora.`, 'success');
         
+        // Actualizar lista
+        renderCredentialsList(userName);
+
         window.dispatchEvent(new CustomEvent('passkeyRegistered', {
           detail: { userId: result.id, userName }
         }));
@@ -386,6 +500,8 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
         // Mostrar datos del usuario autenticado
         const userName = localStorage.getItem('passkey_username');
         if (userName) {
+          if (usernameInput) usernameInput.value = userName;
+          renderCredentialsList(userName);
           setTimeout(() => {
             showStatus(`✅ Bienvenido ${userName}!`, 'success');
           }, 500);
@@ -411,11 +527,13 @@ const { title = 'Autenticación Passkey', showDebug = false } = Astro.props as P
 
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      if (confirm('¿Limpiar datos de sesión?')) {
+      if (confirm('¿Limpiar datos de sesión locales?')) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('passkey_user_id');
         localStorage.removeItem('passkey_username');
         localStorage.removeItem('passkey_display_name');
+        if (usernameInput) usernameInput.value = '';
+        renderCredentialsList('');
         appendDebug('[CLEAR] Sesión limpiada');
         showStatus('✅ Sesión limpiada correctamente', 'success');
       }
