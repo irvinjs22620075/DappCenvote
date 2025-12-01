@@ -478,15 +478,12 @@ import Layout from '../../layouts/Layout.astro';
   // Crear o actualizar encuesta
   document.getElementById('surveyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!publicKey) {
-      alert('Por favor conecta tu wallet primero');
-      return;
-    }
 
     const formData = new FormData(e.target);
-    const selectedCandidates = Array.from(document.getElementById('candidates').selectedOptions).map(option => option.value);
+    const selectedCandidates = document.getElementById('candidates').selectedOptions;
+    const candidatesArray = Array.from(selectedCandidates).map(option => option.value);
     
-    if (selectedCandidates.length === 0) {
+    if (candidatesArray.length === 0) {
       alert('Debes seleccionar al menos un candidato');
       return;
     }
@@ -496,8 +493,8 @@ import Layout from '../../layouts/Layout.astro';
       description: formData.get('description'),
       start_date: formData.get('start_date'),
       end_date: formData.get('end_date'),
-      candidates: selectedCandidates,
-      created_by: publicKey
+      candidates: candidatesArray,
+      created_by: publicKey || 'admin'  // Opcional: usar wallet o marcar como admin
     };
 
     try {
@@ -517,15 +514,19 @@ import Layout from '../../layouts/Layout.astro';
         body: JSON.stringify(surveyData)
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         alert(isEditing ? 'Encuesta actualizada exitosamente' : 'Encuesta creada exitosamente');
         cancelEdit();
         loadSurveys();
       } else {
-        throw new Error('Error al guardar encuesta');
+        // Mostrar el error específico del backend
+        const errorMsg = data.error || 'Error desconocido al guardar encuesta';
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error completo:', error);
       alert('Error al guardar encuesta: ' + error.message);
     }
   });

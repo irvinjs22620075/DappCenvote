@@ -252,16 +252,12 @@ import Layout from '../../layouts/Layout.astro';
   // Registro o actualización de candidato
   document.getElementById('candidateForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!publicKey) {
-      alert('Por favor conecta tu wallet primero');
-      return;
-    }
 
     const formData = new FormData(e.target);
     const candidateData = {
       name: formData.get('name'),
       rfc: formData.get('rfc'),
-      wallet_address: publicKey
+      wallet_address: publicKey || null  // Opcional
     };
 
     try {

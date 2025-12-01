@@ -39,10 +39,6 @@ import Layout from '../../layouts/Layout.astro';
             </div>
           </div>
           <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" id="connectWalletBtn"
-              class="btn-primary">
-              🔗 Conectar Wallet
-            </button>
             <button type="button" id="cancelBtn" style="display: none;"
               class="px-6 py-2 rounded-lg font-semibold transition-all duration-300 bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800">
               ❌ Cancelar
@@ -88,77 +84,6 @@ import Layout from '../../layouts/Layout.astro';
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
-
-  // Auto-detectar wallet conectada
-  async function autoDetectWallet() {
-    // Verificar si ya hay una clave pública guardada
-    if (freighterService.publicKey) {
-      publicKey = freighterService.publicKey;
-      updateWalletButton(true);
-      console.log('✅ Wallet auto-detectada:', publicKey.slice(0, 8) + '...');
-    } else {
-      // Intentar verificar conexión
-      const isConnected = await freighterService.checkConnection();
-      if (isConnected) {
-        // Intentar reconectar
-        const result = await freighterService.connect();
-        if (result.success) {
-          publicKey = result.publicKey;
-          updateWalletButton(true);
-          console.log('✅ Wallet reconectada automáticamente');
-        }
-      }
-    }
-  }
-
-  // Actualizar botón de wallet
-  function updateWalletButton(connected) {
-    const btn = document.getElementById('connectWalletBtn');
-    if (connected && publicKey) {
-      btn.textContent = `✅ ${publicKey.slice(0, 6)}...${publicKey.slice(-4)}`;
-      btn.classList.remove('btn-primary');
-      btn.classList.add('bg-green-600', 'hover:bg-green-700');
-    } else {
-      btn.textContent = '🔗 Conectar Wallet';
-      btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-      btn.classList.add('btn-primary');
-    }
-  }
-
-  // Escuchar eventos de wallet
-  window.addEventListener('walletConnected', (event: any) => {
-    publicKey = event.detail.publicKey;
-    updateWalletButton(true);
-    console.log('📡 Evento de wallet conectada recibido');
-  });
-
-  window.addEventListener('walletDisconnected', () => {
-    publicKey = null;
-    updateWalletButton(false);
-    console.log('📡 Evento de wallet desconectada recibido');
-  });
-
-  // Conexión con Freighter
-  async function connectWallet() {
-    try {
-      const result = await freighterService.connect();
-      
-      if (result.success) {
-        publicKey = result.publicKey;
-        updateWalletButton(true);
-        
-        if (publicKey === freighterService.expectedPublicKey) {
-            console.log('✅ Cuenta verificada en formulario de usuarios');
-        }
-      } else {
-        alert(result.message);
-      }
-
-    } catch (error) {
-      console.error("Error al conectar wallet:", error);
-      alert("Error al conectar con Freighter");
-    }
-  }
 
   // Cargar usuarios
   async function loadUsers() {
@@ -216,7 +141,6 @@ import Layout from '../../layouts/Layout.astro';
       document.getElementById('email').value = user.email;
       
       publicKey = user.wallet_address;
-      updateWalletButton(true);
       
       // Cambiar el botón de submit
       isEditing = true;
@@ -264,23 +188,13 @@ import Layout from '../../layouts/Layout.astro';
     document.getElementById('submitBtnText').textContent = '✨ Registrar Usuario';
     document.getElementById('cancelBtn').style.display = 'none';
     
-    // Restaurar la wallet conectada si existe
-    if (freighterService.publicKey) {
-      publicKey = freighterService.publicKey;
-      updateWalletButton(true);
-    } else {
-      publicKey = null;
-      updateWalletButton(false);
-    }
+    // Limpiar public key
+    publicKey = null;
   }
 
   // Registro o actualización de usuario
   document.getElementById('userForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!publicKey) {
-      alert('Por favor conecta tu wallet primero');
-      return;
-    }
 
     const formData = new FormData(e.target);
     const userData = {
@@ -289,7 +203,7 @@ import Layout from '../../layouts/Layout.astro';
       maternal_last_name: formData.get('maternal_last_name'),
       phone: formData.get('phone'),
       email: formData.get('email'),
-      wallet_address: publicKey
+      wallet_address: publicKey || null  // Opcional: usar wallet conectada o null
     };
 
     try {
@@ -308,26 +222,26 @@ import Layout from '../../layouts/Layout.astro';
         body: JSON.stringify(userData)
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         alert(isEditing ? 'Usuario actualizado exitosamente' : 'Usuario registrado exitosamente');
         cancelEdit();
         loadUsers();
       } else {
-        throw new Error('Error al guardar usuario');
+        // Mostrar el error específico del backend
+        const errorMsg = data.error || 'Error desconocido al guardar usuario';
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error completo:', error);
       alert('Error al guardar usuario: ' + error.message);
     }
   });
 
   // Event Listeners
   document.addEventListener('DOMContentLoaded', async () => {
-    document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
     document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
-    
-    // Auto-detectar wallet al cargar
-    await autoDetectWallet();
     
     // Cargar usuarios
     loadUsers();
