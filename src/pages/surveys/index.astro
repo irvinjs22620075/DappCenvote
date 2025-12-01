@@ -100,19 +100,24 @@ import Layout from '../../layouts/Layout.astro';
 
   // Auto-detectar wallet conectada
   async function autoDetectWallet() {
-    if (freighterService.publicKey) {
+    // Siempre verificar el estado real de la conexión con la extensión
+    const isConnected = await freighterService.checkConnection();
+    
+    if (isConnected && freighterService.publicKey) {
       publicKey = freighterService.publicKey;
       updateWalletButton(true);
-      console.log('✅ Wallet auto-detectada:', publicKey.slice(0, 8) + '...');
-    } else {
-      const isConnected = await freighterService.checkConnection();
-      if (isConnected) {
-        const result = await freighterService.connect();
-        if (result.success) {
-          publicKey = result.publicKey;
-          updateWalletButton(true);
-          console.log('✅ Wallet reconectada automáticamente');
-        }
+      console.log('✅ Wallet auto-detectada y verificada:', publicKey.slice(0, 8) + '...');
+    } else if (freighterService.publicKey) {
+      // Tenemos datos guardados pero no conexión activa con la extensión
+      // Intentamos reconectar explícitamente
+      const result = await freighterService.connect();
+      if (result.success) {
+        publicKey = result.publicKey;
+        updateWalletButton(true);
+        console.log('✅ Wallet reconectada automáticamente');
+      } else {
+        // Si falla, limpiamos el estado visual
+        updateWalletButton(false);
       }
     }
   }
@@ -348,34 +353,66 @@ import Layout from '../../layouts/Layout.astro';
   }
 
   async function vote(candidateId) {
-    if (!confirm(`¿Confirmas tu voto?`)) {
-      return;
-    }
-    
     try {
-      // Guardar voto en MongoDB
-
-      const response = await fetch(`http://localhost:3000/api/surveys/${currentSurveyId}/vote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidateId,
-          voterAddress: publicKey
-        })
+      // Importar VotingService
+      const { votingService } = await import('../../services/VotingService');
+      
+      const voteFee = votingService.getVoteFee();
+      
+      // Confirmar con el usuario mostrando el costo
+      const confirmMessage = `¿Confirmas tu voto?\n\n💰 Este voto consumirá ${voteFee} XLM de tu wallet.\n\nLa transacción será procesada en la blockchain de Stellar.`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+      
+      // Mostrar indicador de carga
+      const voteContent = document.getElementById('voteContent');
+      const originalContent = voteContent.innerHTML;
+      
+      voteContent.innerHTML = `
+        <div class="text-center py-8">
+          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p class="text-white text-lg font-semibold mb-2">Procesando tu voto...</p>
+          <p class="text-gray-400 text-sm">1. Verificando balance</p>
+          <p class="text-gray-400 text-sm">2. Procesando pago de ${voteFee} XLM</p>
+          <p class="text-gray-400 text-sm">3. Registrando voto</p>
+        </div>
+      `;
+      
+      // Ejecutar votación con pago XLM
+      const result = await votingService.vote({
+        surveyId: currentSurveyId,
+        candidateId: candidateId,
+        voterAddress: publicKey
       });
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        alert('¡Voto registrado exitosamente!');
-        // Recargar el modal para mostrar resultados
+      if (result.success) {
+        // Mostrar éxito con detalles de la transacción
+        let successMessage = result.message;
+        if (result.transactionHash) {
+          successMessage += `\n\n🔗 Hash de transacción:\n${result.transactionHash.substring(0, 20)}...`;
+          successMessage += `\n\n📊 Puedes verificar tu transacción en Stellar Expert (testnet)`;
+        }
+        alert(successMessage);
+        
+        // Recargar el modal para mostrar resultados actualizados
         openVoteModal(currentSurveyId);
       } else {
-        alert(data.error || 'Error al registrar voto');
+        // Restaurar contenido original y mostrar error
+        voteContent.innerHTML = originalContent;
+        alert('❌ ' + result.message);
       }
     } catch (error) {
       console.error('Error al votar:', error);
-      alert('Error al registrar voto: ' + error.message);
+      
+      // Restaurar contenido original si es posible
+      const voteContent = document.getElementById('voteContent');
+      if (voteContent && typeof originalContent !== 'undefined') {
+        voteContent.innerHTML = originalContent;
+      }
+      
+      alert('Error inesperado al procesar tu voto: ' + error.message);
     }
   }
 

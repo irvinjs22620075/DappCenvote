@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import WalletConnector from '../components/WalletConnector.astro';
 import PasskeyConnector from '../components/PasskeyConnector.astro';
+import SurveyCardGrid from '../components/SurveyCardGrid.astro';
 
 // Definir las variables que se usarán en el cliente
 const CONTRACT_ID = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
@@ -112,6 +113,12 @@ const CONTRACT_ID = "GC627W5PYYE5SXWAKC4LB72OYY3JMCP33N7KZ6EILCWAQNHIQDMB3O5W";
           <div class="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-emerald-600 bg-clip-text text-transparent mb-2">⚡</div>
           <p class="text-gray-400">Rápido</p>
         </div>
+      </div>
+      </div>
+
+      <!-- Active Surveys Section (Full Width) -->
+      <div class="mt-24 mb-12 animate-fadeInUp delay-300">
+        <SurveyCardGrid />
       </div>
     </div>
   </div>

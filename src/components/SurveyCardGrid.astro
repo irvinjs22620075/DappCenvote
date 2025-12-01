@@ -1,0 +1,214 @@
+---
+// SurveyCardGrid.astro - Componente para mostrar encuestas de forma atractiva
+---
+
+<section id="surveys-section" class="py-16 px-4">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-12">
+      <h2 class="text-5xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+        🗳️ Encuestas Activas
+      </h2>
+      <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+        Participa en las votaciones y haz que tu voz cuente en la blockchain
+      </p>
+    </div>
+
+    <!-- Grid de Encuestas -->
+    <div id="surveysGrid" class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+      <!-- Las encuestas se cargarán dinámicamente aquí -->
+    </div>
+
+    <!-- Estado vacío -->
+    <div id="emptySurveys" class="hidden text-center py-16">
+      <div class="text-6xl mb-4">📊</div>
+      <p class="text-gray-400 text-lg">No hay encuestas activas en este momento</p>
+      <a href="/surveys" class="btn-primary mt-6 inline-block">
+        Crear Nueva Encuesta
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  interface Survey {
+    _id: string;
+    name: string;
+    description: string;
+    start_date: string;
+    end_date: string;
+    candidates: string[];
+  }
+
+  async function loadSurveys() {
+    try {
+      const response = await fetch('http://localhost:3000/api/surveys');
+      const surveys: Survey[] = await response.json();
+      
+      const surveysGrid = document.getElementById('surveysGrid');
+      const emptySurveys = document.getElementById('emptySurveys');
+      
+      if (!surveys || surveys.length === 0) {
+        surveysGrid?.classList.add('hidden');
+        emptySurveys?.classList.remove('hidden');
+        return;
+      }
+
+      surveysGrid?.classList.remove('hidden');
+      emptySurveys?.classList.add('hidden');
+
+      // Filtrar solo encuestas activas
+      const now = new Date();
+      const activeSurveys = surveys.filter(survey => {
+        const startDate = new Date(survey.start_date);
+        const endDate = new Date(survey.end_date);
+        return now >= startDate && now <= endDate;
+      });
+
+      if (activeSurveys.length === 0) {
+        surveysGrid.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <div class="text-5xl mb-4">⏰</div>
+            <p class="text-gray-400 text-lg">No hay encuestas activas en este momento</p>
+            <p class="text-gray-500 text-sm mt-2">Hay ${surveys.length} encuesta(s) programada(s) para el futuro</p>
+          </div>
+        `;
+        return;
+      }
+
+      surveysGrid.innerHTML = activeSurveys.map(survey => {
+        const endDate = new Date(survey.end_date);
+        const timeRemaining = getTimeRemaining(endDate);
+        
+        return `
+          <div class="group relative overflow-hidden rounded-3xl border-2 border-white/20 hover:border-purple-500/50 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
+            <!-- Background Gradient -->
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 backdrop-blur-xl"></div>
+            
+            <!-- Animated Glow Effect -->
+            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+              <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
+            </div>
+
+            <!-- Content -->
+            <div class="relative p-8">
+              <!-- Header -->
+              <div class="flex items-start justify-between mb-6">
+                <div class="flex-1">
+                  <h3 class="text-2xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">
+                    ${survey.name}
+                  </h3>
+                  <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/20 border border-green-400/30 text-green-300 text-sm font-semibold">
+                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    Activa
+                  </span>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <p class="text-gray-300 text-base mb-6 line-clamp-3 leading-relaxed">
+                ${survey.description}
+              </p>
+
+              <!-- Stats -->
+              <div class="space-y-3 mb-6">
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="text-purple-300">👥</span>
+                  <span class="text-gray-400">
+                    <span class="text-white font-semibold">${survey.candidates ? survey.candidates.length : 0}</span> candidatos
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="text-pink-300">⏱️</span>
+                  <span class="text-gray-400">
+                    Termina en <span class="text-white font-semibold">${timeRemaining}</span>
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="text-blue-300">💰</span>
+                  <span class="text-gray-400">
+                    Costo: <span class="text-white font-semibold">0.1 XLM</span> por voto
+                  </span>
+                </div>
+              </div>
+
+              <!-- Action Button -->
+              <a href="/surveys" 
+                 class="block w-full text-center px-6 py-4 rounded-xl font-bold text-lg
+                        bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600
+                        hover:from-blue-500 hover:via-purple-500 hover:to-pink-500
+                        text-white shadow-lg shadow-purple-500/30
+                        transform transition-all duration-300
+                        hover:shadow-xl hover:shadow-purple-500/50 hover:-translate-y-1
+                        border-2 border-white/10 hover:border-white/30">
+                🗳️ Votar Ahora
+              </a>
+
+              <!-- Blockchain Badge -->
+              <div class="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
+                <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+                <span>Powered by Stellar Blockchain</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    } catch (error) {
+      console.error('Error al cargar encuestas:', error);
+      const surveysGrid = document.getElementById('surveysGrid');
+      if (surveysGrid) {
+        surveysGrid.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <div class="text-5xl mb-4">❌</div>
+            <p class="text-red-400 text-lg">Error al cargar las encuestas</p>
+            <button onclick="location.reload()" class="btn-primary mt-4">
+              Reintentar
+            </button>
+          </div>
+        `;
+      }
+    }
+  }
+
+  function getTimeRemaining(endDate: Date): string {
+    const now = new Date();
+    const diff = endDate.getTime() - now.getTime();
+    
+    if (diff <= 0) return 'Finalizada';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }
+
+  // Cargar encuestas al montar el componente
+  document.addEventListener('DOMContentLoaded', () => {
+    loadSurveys();
+    
+    // Actualizar cada 30 segundos
+    setInterval(loadSurveys, 30000);
+  });
+</script>
+
+<style>
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

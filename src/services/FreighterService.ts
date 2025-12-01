@@ -119,6 +119,24 @@ export class FreighterService {
             });
 
             this._isConnected = result.isConnected;
+
+            // Si está conectado, intentar obtener detalles de la red si no los tenemos
+            if (this._isConnected) {
+                try {
+                    // Si no tenemos public key, intentar obtenerla
+                    if (!this._publicKey) {
+                        const addressResult = await getAddress();
+                        this._publicKey = addressResult.address;
+                    }
+
+                    // Siempre actualizar network details para asegurar que tenemos passphrase
+                    const networkDetails = await getNetworkDetails();
+                    this._networkDetails = networkDetails as NetworkDetails;
+                } catch (err) {
+                    console.warn('Error al obtener detalles adicionales de conexión:', err);
+                }
+            }
+
             return result.isConnected;
         } catch (e) {
             console.error('Error al verificar la conexión:', e);
@@ -240,6 +258,88 @@ export class FreighterService {
         console.log('✅ Wallet desconectada');
     }
 
+    async sendPayment(destinationPublicKey: string, amount: string): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+        try {
+            if (!this._isConnected || !this._publicKey || !this._networkDetails) {
+                return {
+                    success: false,
+                    error: 'Wallet no conectada. Por favor conecta tu wallet primero.'
+                };
+            }
+
+            console.log('💸 Preparando pago de', amount, 'XLM a', `${destinationPublicKey.slice(0, 6)}...${destinationPublicKey.slice(-6)}`);
+
+            // Importar Stellar SDK dinámicamente
+            const StellarSdk = await import('@stellar/stellar-sdk');
+
+            // Determinar el servidor Horizon según la red
+            const horizonUrl = this._networkDetails.networkUrl || 'https://horizon-testnet.stellar.org';
+            const server = new StellarSdk.Horizon.Server(horizonUrl);
+
+            // Cargar la cuenta del usuario
+            const account = await server.loadAccount(this._publicKey);
+
+            // Construir la transacción de pago
+            const transaction = new StellarSdk.TransactionBuilder(account, {
+                fee: StellarSdk.BASE_FEE,
+                networkPassphrase: this._networkDetails.networkPassphrase
+            })
+                .addOperation(
+                    StellarSdk.Operation.payment({
+                        destination: destinationPublicKey,
+                        asset: StellarSdk.Asset.native(),
+                        amount: amount
+                    })
+                )
+                .setTimeout(180)
+                .build();
+
+            // Convertir a XDR para firmar
+            const xdr = transaction.toXDR();
+
+            console.log('✍️ Solicitando firma de transacción de pago...');
+
+            // Firmar con Freighter
+            const { signed, error } = await this.signTransaction(xdr);
+
+            if (error || !signed) {
+                throw new Error(error || 'Error al firmar la transacción');
+            }
+
+            // Reconstruir la transacción firmada desde el XDR firmado
+            const signedTransaction = StellarSdk.TransactionBuilder.fromXDR(
+                signed,
+                this._networkDetails.networkPassphrase
+            );
+
+            console.log('📤 Enviando transacción a la red...');
+
+            // Enviar a la red
+            const result = await server.submitTransaction(signedTransaction as any);
+
+            console.log('✅ Pago completado exitosamente!');
+            console.log('   Hash:', result.hash);
+
+            return {
+                success: true,
+                transactionHash: result.hash
+            };
+
+        } catch (error) {
+            console.error('❌ Error al enviar pago:', error);
+
+            let errorMessage = 'Error al procesar el pago';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
+            return {
+                success: false,
+                error: errorMessage
+            };
+        }
+    }
+
     async signTransaction(xdr: string): Promise<{ signed?: string; error?: string }> {
         try {
             if (!this._isConnected || !this._networkDetails) {
@@ -253,7 +353,9 @@ export class FreighterService {
             });
 
             console.log('✅ Transacción firmada exitosamente');
-            return { signed: signedXdr };
+            // El tipo de retorno puede variar según la versión, aseguramos obtener el string
+            const signedString = typeof signedXdr === 'string' ? signedXdr : (signedXdr as any).signedTxXdr;
+            return { signed: signedString };
         } catch (error) {
             console.error('❌ Error al firmar transacción:', error);
 
