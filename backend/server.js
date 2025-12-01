@@ -40,24 +40,26 @@ app.post('/api/passkey/register/options', (req, res) => {
       return res.status(400).json({ error: 'username y displayName son requeridos' });
     }
 
-    // Generar challenge aleatorio
-    const challenge = crypto.randomBytes(32);
+    // Generar challenge aleatorio y codificarlo en base64url para facilitar su uso en el cliente
+    const challengeBuffer = crypto.randomBytes(32);
+    const challenge = challengeBuffer.toString('base64url');
     const sessionId = `reg-${Date.now()}-${Math.random()}`;
     const userId = `user-${Date.now()}`;
 
-    // Guardar sesión temporal
+    // Guardar sesión temporal con el challenge original como Buffer
     sessions.set(sessionId, {
       sessionId,
       userId,
       username,
       displayName,
-      challenge: Buffer.from(challenge),
+      challenge: challengeBuffer, // Guardamos el Buffer para comparar después
       createdAt: Date.now(),
       type: 'register'
     });
 
+    // Devolver el challenge en formato base64url al cliente
     res.json({
-      challenge: Array.from(new Uint8Array(challenge)),
+      challenge,
       sessionId,
       userId,
       username,
@@ -119,19 +121,22 @@ app.post('/api/passkey/register/verify', (req, res) => {
 // Generar challenge para autenticación
 app.post('/api/passkey/authenticate/options', (req, res) => {
   try {
-    const challenge = crypto.randomBytes(32);
+    // Generar challenge aleatorio y codificarlo en base64url para facilitar su uso en el cliente
+    const challengeBuffer = crypto.randomBytes(32);
+    const challenge = challengeBuffer.toString('base64url');
     const sessionId = `auth-${Date.now()}-${Math.random()}`;
 
     sessions.set(sessionId, {
       sessionId,
       userId: `auth-${Date.now()}`,
-      challenge: Buffer.from(challenge),
+      challenge: challengeBuffer, // Guardamos el Buffer para comparar después
       createdAt: Date.now(),
       type: 'authenticate'
     });
 
+    // Devolver el challenge en formato base64url al cliente
     res.json({
-      challenge: Array.from(new Uint8Array(challenge)),
+      challenge,
       sessionId
     });
   } catch (error) {

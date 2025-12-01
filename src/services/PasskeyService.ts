@@ -93,10 +93,13 @@ export async function registerPasskey(opts: RegisterOptions): Promise<RegisterRe
     const { challenge, sessionId, userId } = await optionsResponse.json();
 
     // 2. Crear credencial con WebAuthn
+    // Decode challenge (base64url) to Uint8Array
+    const challengeArray = typeof challenge === 'string' ? fromBase64Url(challenge) : new Uint8Array(challenge);
     const publicKey: PublicKeyCredentialCreationOptions = {
-      challenge: new Uint8Array(challenge),
+      challenge: challengeArray,
       rp: {
-        name: 'CenVote dApp'
+        name: 'CenVote dApp',
+        id: window.location.hostname // Ensure rp.id matches the domain to avoid "invalid domain" errors
       },
       user: {
         id: new TextEncoder().encode(opts.id),
@@ -202,11 +205,14 @@ export async function authenticatePasskey(
     const { challenge, sessionId } = await optionsResponse.json();
 
     // 2. Autenticar con WebAuthn
+    // Decode challenge (base64url) to Uint8Array
+    const challengeArray = typeof challenge === 'string' ? fromBase64Url(challenge) : new Uint8Array(challenge);
     const publicKey: PublicKeyCredentialRequestOptions = {
-      challenge: new Uint8Array(challenge),
+      challenge: challengeArray,
       timeout: 60000,
       userVerification: 'required',
-      allowCredentials: []
+      allowCredentials: [],
+      // rp.id is not required for authentication request options, but ensure hostname consistency if needed
     } as any;
 
     console.log('[PasskeyService] Autenticando con passkey...');

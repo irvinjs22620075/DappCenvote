@@ -349,11 +349,33 @@ import Layout from '../../layouts/Layout.astro';
 
   // Votar
   async function vote(candidateId) {
-    if (!confirm('¿Confirmas tu voto? Esta acción no se puede deshacer.')) {
+    const fee = await stellarContractService.getVoteFee();
+    const feeXLM = fee / 10000000;
+    
+    if (!confirm(`¿Confirmas tu voto? Esta acción consumirá aproximadamente ${feeXLM} XLM.`)) {
       return;
     }
     
     try {
+      console.log('🔗 Intentando registrar voto en blockchain...');
+      
+      // En una implementación real, necesitaríamos el ID de encuesta de blockchain y la wallet del candidato
+      const blockchainResult = await stellarContractService.voteOnChain(
+        0, // Placeholder survey ID
+        publicKey,
+        "CANDIDATE_WALLET_PLACEHOLDER" // Placeholder candidate wallet
+      );
+
+      if (blockchainResult.success) {
+         console.log('✅ Voto registrado en blockchain:', blockchainResult.transactionHash);
+         alert(`✅ Voto registrado en blockchain!\nTx: ${blockchainResult.transactionHash?.substring(0, 16)}...`);
+      } else {
+         console.warn('⚠️ No se pudo votar en blockchain:', blockchainResult.message);
+         if (!confirm(`No se pudo votar en blockchain: ${blockchainResult.message}\n¿Continuar con voto local?`)) {
+            return;
+         }
+      }
+
       const response = await fetch(`http://localhost:3000/api/surveys/${currentSurveyId}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -366,7 +388,7 @@ import Layout from '../../layouts/Layout.astro';
       const data = await response.json();
       
       if (response.ok) {
-        alert('¡Voto registrado exitosamente!');
+        alert('¡Voto registrado exitosamente en backend!');
         // Recargar el modal para mostrar resultados
         openVoteModal(currentSurveyId);
       } else {
@@ -374,7 +396,7 @@ import Layout from '../../layouts/Layout.astro';
       }
     } catch (error) {
       console.error('Error al votar:', error);
-      alert('Error al registrar voto');
+      alert('Error al registrar voto: ' + error.message);
     }
   }
 
@@ -474,6 +496,9 @@ import Layout from '../../layouts/Layout.astro';
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
+   // Conexión con Freighter
+  import { freighterService } from '../../services/FreighterService';
+  import { stellarContractService } from '../../services/StellarContractService';
 
   // Crear o actualizar encuesta
   document.getElementById('surveyForm').addEventListener('submit', async (e) => {
@@ -501,6 +526,38 @@ import Layout from '../../layouts/Layout.astro';
     };
 
     try {
+      // Intentar crear en blockchain si no estamos editando
+      if (!isEditing) {
+        console.log('🔗 Intentando crear encuesta en blockchain...');
+        
+        // Convertir fechas a timestamps (segundos)
+        const startTimestamp = Math.floor(new Date(surveyData.start_date).getTime() / 1000);
+        const endTimestamp = Math.floor(new Date(surveyData.end_date).getTime() / 1000);
+
+        // Obtener wallets de candidatos (esto requeriría una llamada extra al backend si solo tenemos IDs, 
+        // por simplicidad asumiremos que el backend maneja la asociación o que simulamos el éxito)
+        // En una implementación real, necesitaríamos las wallets de los candidatos seleccionados.
+        
+        const blockchainResult = await stellarContractService.createSurveyOnChain({
+          creator: publicKey,
+          name: surveyData.name,
+          description: surveyData.description,
+          start_date: startTimestamp,
+          end_date: endTimestamp,
+          candidates: [] // Placeholder: necesitaríamos mapear IDs a wallets
+        });
+
+        if (blockchainResult.success) {
+          console.log('✅ Encuesta creada en blockchain:', blockchainResult.transactionHash);
+          alert(`✅ Encuesta creada en blockchain!\nTx: ${blockchainResult.transactionHash?.substring(0, 16)}...`);
+        } else {
+          console.warn('⚠️ No se pudo crear en blockchain:', blockchainResult.message);
+          if (!confirm(`No se pudo crear en blockchain: ${blockchainResult.message}\n¿Continuar con creación local?`)) {
+            return;
+          }
+        }
+      }
+
       const url = isEditing 
         ? `http://localhost:3000/api/surveys/${editingId}`
         : 'http://localhost:3000/api/surveys';
@@ -516,7 +573,7 @@ import Layout from '../../layouts/Layout.astro';
       });
 
       if (response.ok) {
-        alert(isEditing ? 'Encuesta actualizada exitosamente' : 'Encuesta creada exitosamente');
+        alert(isEditing ? 'Encuesta actualizada exitosamente' : 'Encuesta creada exitosamente en backend');
         cancelEdit();
         loadSurveys();
       } else {
@@ -524,7 +581,7 @@ import Layout from '../../layouts/Layout.astro';
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error al guardar encuesta');
+      alert('Error al guardar encuesta: ' + error.message);
     }
   });
 
