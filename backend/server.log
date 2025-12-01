@@ -1,5 +1,40 @@
-nohup: ignoring input
-[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
 🚀 Server running on port 3000
 📱 Passkey API: http://localhost:3000/api/passkey/
 🔍 Debug: http://localhost:3000/api/debug
+❌ MongoDB connection error: MongooseServerSelectionError: connect ECONNREFUSED 127.0.0.1:27017
+    at _handleConnectionErrors (/root/Ingenieria_de_Software/CenVote-dapp/node_modules/mongoose/lib/connection.js:1169:11)
+    at NativeConnection.openUri (/root/Ingenieria_de_Software/CenVote-dapp/node_modules/mongoose/lib/connection.js:1100:11) {
+  errorLabelSet: Set(0) {},
+  reason: TopologyDescription {
+    type: 'Unknown',
+    servers: Map(1) { 'localhost:27017' => [ServerDescription] },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: null,
+    maxElectionId: null,
+    maxSetVersion: null,
+    commonWireVersion: 0,
+    logicalSessionTimeoutMinutes: null
+  },
+  code: undefined,
+  cause: TopologyDescription {
+    type: 'Unknown',
+    servers: Map(1) { 'localhost:27017' => [ServerDescription] },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: null,
+    maxElectionId: null,
+    maxSetVersion: null,
+    commonWireVersion: 0,
+    logicalSessionTimeoutMinutes: null
+  }
+}
+Error in register/options: MongooseError: Operation `sessions.insertOne()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (/root/Ingenieria_de_Software/CenVote-dapp/node_modules/mongoose/lib/drivers/node-mongodb-native/collection.js:187:23)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)

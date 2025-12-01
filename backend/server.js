@@ -2,6 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
+
+// Import Models
+import User from './models/User.js';
+import Candidate from './models/Candidate.js';
+import Survey from './models/Survey.js';
+import Vote from './models/Vote.js';
+import Session from './models/Session.js';
+import Credential from './models/Credential.js';
 
 dotenv.config();
 
@@ -11,28 +20,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ===== IN-MEMORY STORAGE =====
-const users = new Map();
-const credentials = new Map();
-const sessions = new Map();
-const candidates = new Map();
-const surveys = new Map();
-const votes = new Map(); // Formato: surveyId -> { candidateId: count, voters: Set(walletAddresses) }
-
-// Limpiar sesiones expiradas cada 10 minutos
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, session] of sessions.entries()) {
-    if (now - session.createdAt > 600000) {
-      sessions.delete(key);
-    }
-  }
-}, 600000);
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // ===== PASSKEY/WEBAUTHN ENDPOINTS =====
 
 // Generar challenge para registro
-app.post('/api/passkey/register/options', (req, res) => {
+app.post('/api/passkey/register/options', async (req, res) => {
   try {
     const { username, displayName } = req.body;
 
@@ -40,24 +36,22 @@ app.post('/api/passkey/register/options', (req, res) => {
       return res.status(400).json({ error: 'username y displayName son requeridos' });
     }
 
-    // Generar challenge aleatorio y codificarlo en base64url para facilitar su uso en el cliente
+    // Generar challenge aleatorio y codificarlo en base64url
     const challengeBuffer = crypto.randomBytes(32);
     const challenge = challengeBuffer.toString('base64url');
     const sessionId = `reg-${Date.now()}-${Math.random()}`;
     const userId = `user-${Date.now()}`;
 
-    // Guardar sesión temporal con el challenge original como Buffer
-    sessions.set(sessionId, {
+    // Guardar sesión en MongoDB
+    await Session.create({
       sessionId,
       userId,
       username,
       displayName,
-      challenge: challengeBuffer, // Guardamos el Buffer para comparar después
-      createdAt: Date.now(),
+      challenge: challengeBuffer, // Guardamos el Buffer
       type: 'register'
     });
 
-    // Devolver el challenge en formato base64url al cliente
     res.json({
       challenge,
       sessionId,
@@ -72,38 +66,42 @@ app.post('/api/passkey/register/options', (req, res) => {
 });
 
 // Verificar y guardar credencial registrada
-app.post('/api/passkey/register/verify', (req, res) => {
+app.post('/api/passkey/register/verify', async (req, res) => {
   try {
     const { sessionId, credentialId, publicKey, username, displayName } = req.body;
 
     // Verificar sesión
-    const session = sessions.get(sessionId);
+    const session = await Session.findOne({ sessionId });
     if (!session) {
       return res.status(400).json({ error: 'Sesión inválida o expirada' });
     }
 
     // Guardar credencial
     const credKey = `${username}-${credentialId.substring(0, 20)}`;
-    credentials.set(credKey, {
+    await Credential.create({
+      credKey,
       userId: session.userId,
       credentialId,
       publicKey,
       username,
-      displayName,
-      created_at: new Date().toISOString()
+      displayName
     });
 
     // Crear o actualizar usuario
-    users.set(username, {
-      _id: session.userId,
-      username,
-      displayName,
-      wallet_address: session.userId,
-      created_at: new Date().toISOString()
-    });
+    await User.findOneAndUpdate(
+      { username },
+      {
+        _id: session.userId,
+        username,
+        displayName,
+        wallet_address: session.userId,
+        created_at: new Date()
+      },
+      { upsert: true, new: true }
+    );
 
     // Limpiar sesión
-    sessions.delete(sessionId);
+    await Session.deleteOne({ sessionId });
 
     res.json({
       success: true,
@@ -119,22 +117,19 @@ app.post('/api/passkey/register/verify', (req, res) => {
 });
 
 // Generar challenge para autenticación
-app.post('/api/passkey/authenticate/options', (req, res) => {
+app.post('/api/passkey/authenticate/options', async (req, res) => {
   try {
-    // Generar challenge aleatorio y codificarlo en base64url para facilitar su uso en el cliente
     const challengeBuffer = crypto.randomBytes(32);
     const challenge = challengeBuffer.toString('base64url');
     const sessionId = `auth-${Date.now()}-${Math.random()}`;
 
-    sessions.set(sessionId, {
+    await Session.create({
       sessionId,
       userId: `auth-${Date.now()}`,
-      challenge: challengeBuffer, // Guardamos el Buffer para comparar después
-      createdAt: Date.now(),
+      challenge: challengeBuffer,
       type: 'authenticate'
     });
 
-    // Devolver el challenge en formato base64url al cliente
     res.json({
       challenge,
       sessionId
@@ -146,33 +141,30 @@ app.post('/api/passkey/authenticate/options', (req, res) => {
 });
 
 // Verificar autenticación
-app.post('/api/passkey/authenticate/verify', (req, res) => {
+app.post('/api/passkey/authenticate/verify', async (req, res) => {
   try {
     const { sessionId, credentialId, username } = req.body;
 
     // Verificar sesión
-    const session = sessions.get(sessionId);
+    const session = await Session.findOne({ sessionId });
     if (!session) {
       return res.status(400).json({ error: 'Sesión inválida o expirada' });
     }
 
     // Buscar credencial
-    const credKey = Array.from(credentials.keys()).find(key =>
-      key.startsWith(username) && credentials.get(key).credentialId === credentialId
-    );
-
-    if (!credKey) {
+    const credential = await Credential.findOne({ username, credentialId });
+    if (!credential) {
       return res.status(401).json({ error: 'Credencial no encontrada' });
     }
 
     // Buscar usuario
-    const user = users.get(username);
+    const user = await User.findOne({ username });
     if (!user) {
       return res.status(401).json({ error: 'Usuario no encontrado' });
     }
 
     // Limpiar sesión
-    sessions.delete(sessionId);
+    await Session.deleteOne({ sessionId });
 
     // Crear token de sesión
     const authToken = crypto.randomBytes(32).toString('hex');
@@ -192,29 +184,28 @@ app.post('/api/passkey/authenticate/verify', (req, res) => {
 });
 
 // ===== USUARIOS ENDPOINTS =====
-app.post('/api/users', (req, res) => {
+app.post('/api/users', async (req, res) => {
   try {
     const userId = `user-${Date.now()}`;
-    const user = { _id: userId, ...req.body, created_at: new Date().toISOString() };
-    users.set(userId, user);
+    const user = await User.create({ _id: userId, ...req.body });
     res.status(201).json(user);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/users', (req, res) => {
+app.get('/api/users', async (req, res) => {
   try {
-    const userList = Array.from(users.values());
-    res.json(userList);
+    const users = await User.find();
+    res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/users/:id', (req, res) => {
+app.get('/api/users/:id', async (req, res) => {
   try {
-    const user = users.get(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -224,24 +215,22 @@ app.get('/api/users/:id', (req, res) => {
   }
 });
 
-app.put('/api/users/:id', (req, res) => {
+app.put('/api/users/:id', async (req, res) => {
   try {
-    const user = users.get(req.params.id);
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const updated = { ...user, ...req.body, _id: req.params.id };
-    users.set(req.params.id, updated);
-    res.json(updated);
+    res.json(user);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.delete('/api/users/:id', (req, res) => {
+app.delete('/api/users/:id', async (req, res) => {
   try {
-    const deleted = users.delete(req.params.id);
-    if (!deleted) {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     res.status(204).send();
@@ -251,29 +240,28 @@ app.delete('/api/users/:id', (req, res) => {
 });
 
 // ===== CANDIDATOS ENDPOINTS =====
-app.post('/api/candidates', (req, res) => {
+app.post('/api/candidates', async (req, res) => {
   try {
     const candidateId = `candidate-${Date.now()}`;
-    const candidate = { _id: candidateId, ...req.body, created_at: new Date().toISOString() };
-    candidates.set(candidateId, candidate);
+    const candidate = await Candidate.create({ _id: candidateId, ...req.body });
     res.status(201).json(candidate);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/candidates', (req, res) => {
+app.get('/api/candidates', async (req, res) => {
   try {
-    const candidateList = Array.from(candidates.values());
-    res.json(candidateList);
+    const candidates = await Candidate.find();
+    res.json(candidates);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/candidates/:id', (req, res) => {
+app.get('/api/candidates/:id', async (req, res) => {
   try {
-    const candidate = candidates.get(req.params.id);
+    const candidate = await Candidate.findById(req.params.id);
     if (!candidate) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
@@ -283,24 +271,22 @@ app.get('/api/candidates/:id', (req, res) => {
   }
 });
 
-app.put('/api/candidates/:id', (req, res) => {
+app.put('/api/candidates/:id', async (req, res) => {
   try {
-    const candidate = candidates.get(req.params.id);
+    const candidate = await Candidate.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!candidate) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
-    const updated = { ...candidate, ...req.body, _id: req.params.id };
-    candidates.set(req.params.id, updated);
-    res.json(updated);
+    res.json(candidate);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.delete('/api/candidates/:id', (req, res) => {
+app.delete('/api/candidates/:id', async (req, res) => {
   try {
-    const deleted = candidates.delete(req.params.id);
-    if (!deleted) {
+    const candidate = await Candidate.findByIdAndDelete(req.params.id);
+    if (!candidate) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
     res.status(204).send();
@@ -310,29 +296,28 @@ app.delete('/api/candidates/:id', (req, res) => {
 });
 
 // ===== SURVEYS ENDPOINTS =====
-app.post('/api/surveys', (req, res) => {
+app.post('/api/surveys', async (req, res) => {
   try {
     const surveyId = `survey-${Date.now()}`;
-    const survey = { _id: surveyId, ...req.body, created_at: new Date().toISOString() };
-    surveys.set(surveyId, survey);
+    const survey = await Survey.create({ _id: surveyId, ...req.body });
     res.status(201).json(survey);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/surveys', (req, res) => {
+app.get('/api/surveys', async (req, res) => {
   try {
-    const surveyList = Array.from(surveys.values());
-    res.json(surveyList);
+    const surveys = await Survey.find();
+    res.json(surveys);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/surveys/:id', (req, res) => {
+app.get('/api/surveys/:id', async (req, res) => {
   try {
-    const survey = surveys.get(req.params.id);
+    const survey = await Survey.findById(req.params.id);
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
@@ -342,13 +327,13 @@ app.get('/api/surveys/:id', (req, res) => {
   }
 });
 
-app.post('/api/surveys/:id/vote', (req, res) => {
+app.post('/api/surveys/:id/vote', async (req, res) => {
   try {
     const { candidateId, voterAddress } = req.body;
     const surveyId = req.params.id;
 
     // Verificar que existe la encuesta
-    const survey = surveys.get(surveyId);
+    const survey = await Survey.findById(surveyId);
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
@@ -358,64 +343,61 @@ app.post('/api/surveys/:id/vote', (req, res) => {
       return res.status(400).json({ error: 'Candidate not in this survey' });
     }
 
-    // Inicializar votos para esta encuesta si no existen
-    if (!votes.has(surveyId)) {
-      votes.set(surveyId, {
-        votes: {},
-        voters: new Set()
-      });
-    }
-
-    const surveyVotes = votes.get(surveyId);
-
     // Verificar si el usuario ya votó
-    if (surveyVotes.voters.has(voterAddress)) {
+    const existingVote = await Vote.findOne({ surveyId, voterAddress });
+    if (existingVote) {
       return res.status(400).json({ error: 'You have already voted in this survey' });
     }
 
     // Registrar el voto
-    surveyVotes.voters.add(voterAddress);
-    surveyVotes.votes[candidateId] = (surveyVotes.votes[candidateId] || 0) + 1;
+    await Vote.create({
+      surveyId,
+      candidateId,
+      voterAddress
+    });
+
+    const totalVotes = await Vote.countDocuments({ surveyId });
 
     res.json({
       success: true,
       message: 'Vote registered successfully',
-      totalVotes: surveyVotes.voters.size
+      totalVotes
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/surveys/:id/results', (req, res) => {
+app.get('/api/surveys/:id/results', async (req, res) => {
   try {
     const surveyId = req.params.id;
-    const survey = surveys.get(surveyId);
+    const survey = await Survey.findById(surveyId);
 
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
 
-    const surveyVotes = votes.get(surveyId) || { votes: {}, voters: new Set() };
-    const totalVotes = surveyVotes.voters.size;
+    const votes = await Vote.find({ surveyId });
+    const totalVotes = votes.length;
 
     // Crear resultados con información de candidatos
-    const results = survey.candidates.map(candidateId => {
-      const candidate = candidates.get(candidateId);
-      const voteCount = surveyVotes.votes[candidateId] || 0;
+    const results = [];
+    for (const candidateId of survey.candidates) {
+      const candidate = await Candidate.findById(candidateId);
+      const voteCount = votes.filter(v => v.candidateId === candidateId).length;
       const percentage = totalVotes > 0 ? (voteCount / totalVotes * 100).toFixed(2) : 0;
 
-      return {
+      results.push({
         candidateId,
         candidateName: candidate ? candidate.name : 'Unknown',
         votes: voteCount,
         percentage: parseFloat(percentage)
-      };
-    });
+      });
+    }
 
     res.json({
       surveyId,
-      surveyName: survey.name,
+      surveyName: survey.title, // Note: Survey model uses 'title'
       totalVotes,
       results: results.sort((a, b) => b.votes - a.votes)
     });
@@ -424,13 +406,13 @@ app.get('/api/surveys/:id/results', (req, res) => {
   }
 });
 
-app.post('/api/surveys/:id/check-vote', (req, res) => {
+app.post('/api/surveys/:id/check-vote', async (req, res) => {
   try {
     const { voterAddress } = req.body;
     const surveyId = req.params.id;
 
-    const surveyVotes = votes.get(surveyId);
-    const hasVoted = surveyVotes ? surveyVotes.voters.has(voterAddress) : false;
+    const vote = await Vote.findOne({ surveyId, voterAddress });
+    const hasVoted = !!vote;
 
     res.json({ hasVoted });
   } catch (error) {
@@ -438,23 +420,26 @@ app.post('/api/surveys/:id/check-vote', (req, res) => {
   }
 });
 
-app.put('/api/surveys/:id', (req, res) => {
+app.put('/api/surveys/:id', async (req, res) => {
   try {
-    const survey = surveys.get(req.params.id);
+    const survey = await Survey.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!survey) {
       return res.status(404).json({ error: 'Survey not found' });
     }
-    const updated = { ...survey, ...req.body };
-    surveys.set(req.params.id, updated);
-    res.json(updated);
+    res.json(survey);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.delete('/api/surveys/:id', (req, res) => {
+app.delete('/api/surveys/:id', async (req, res) => {
   try {
-    surveys.delete(req.params.id);
+    const survey = await Survey.findByIdAndDelete(req.params.id);
+    if (!survey) {
+      return res.status(404).json({ error: 'Survey not found' });
+    }
+    // Also delete associated votes
+    await Vote.deleteMany({ surveyId: req.params.id });
     res.status(204).send();
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -462,20 +447,27 @@ app.delete('/api/surveys/:id', (req, res) => {
 });
 
 // ===== DEBUG ENDPOINT =====
-app.get('/api/debug', (req, res) => {
-  res.json({
-    users: Array.from(users.entries()).map(([key, user]) => ({ key, user })),
-    credentials: Array.from(credentials.entries()).map(([key, cred]) => ({
-      key,
-      credentialId: cred.credentialId.substring(0, 20) + '...',
-      username: cred.username
-    })),
-    sessions: Array.from(sessions.entries()).map(([key, session]) => ({
-      key,
-      type: session.type,
-      username: session.username
-    }))
-  });
+app.get('/api/debug', async (req, res) => {
+  try {
+    const users = await User.find();
+    const credentials = await Credential.find();
+    const sessions = await Session.find();
+
+    res.json({
+      users,
+      credentials: credentials.map(c => ({
+        ...c.toObject(),
+        credentialId: c.credentialId.substring(0, 20) + '...'
+      })),
+      sessions: sessions.map(s => ({
+        sessionId: s.sessionId,
+        type: s.type,
+        username: s.username
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ===== START SERVER =====
