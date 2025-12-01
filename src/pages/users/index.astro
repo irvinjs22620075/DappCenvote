@@ -84,11 +84,13 @@ import Layout from '../../layouts/Layout.astro';
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
+  
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
   // Cargar usuarios
   async function loadUsers() {
     try {
-      const response = await fetch('http://localhost:3000/api/users');
+      const response = await fetch(`${API_URL}/api/users`);
       const users = await response.json();
       const usersList = document.getElementById('usersList');
       
@@ -129,7 +131,7 @@ import Layout from '../../layouts/Layout.astro';
   // Editar usuario
   async function editUser(id) {
     try {
-      const response = await fetch(`http://localhost:3000/api/users/${id}`);
+      const response = await fetch(`${API_URL}/api/users/${id}`);
       const user = await response.json();
       
       // Llenar el formulario
@@ -163,7 +165,7 @@ import Layout from '../../layouts/Layout.astro';
     }
     
     try {
-      const response = await fetch(`http://localhost:3000/api/users/${id}`, {
+      const response = await fetch(`${API_URL}/api/users/${id}`, {
         method: 'DELETE'
       });
 
@@ -209,8 +211,8 @@ import Layout from '../../layouts/Layout.astro';
     try {
       // Guardar en MongoDB
       const url = isEditing 
-        ? `http://localhost:3000/api/users/${editingId}`
-        : 'http://localhost:3000/api/users';
+        ? `${API_URL}/api/users/${editingId}`
+        : `${API_URL}/api/users`;
         
       const method = isEditing ? 'PUT' : 'POST';
       

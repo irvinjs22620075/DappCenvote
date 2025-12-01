@@ -97,6 +97,8 @@ import Layout from '../../layouts/Layout.astro';
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
+  
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
   // Auto-detectar wallet conectada
   async function autoDetectWallet() {
@@ -175,7 +177,7 @@ import Layout from '../../layouts/Layout.astro';
   
   async function loadCandidateOptions() {
     try {
-      const response = await fetch('http://localhost:3000/api/candidates');
+      const response = await fetch(`${API_URL}/api/candidates`);
       const candidates = await response.json();
       const gridElement = document.getElementById('candidatesGrid');
       
@@ -237,7 +239,7 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar encuestas
   async function loadSurveys() {
     try {
-      const response = await fetch('http://localhost:3000/api/surveys');
+      const response = await fetch(`${API_URL}/api/surveys`);
       const surveys = await response.json();
       const surveysList = document.getElementById('surveysList');
       
@@ -316,11 +318,11 @@ import Layout from '../../layouts/Layout.astro';
     
     try {
       // Cargar información de la encuesta
-      const surveyResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}`);
+      const surveyResponse = await fetch(`${API_URL}/api/surveys/${surveyId}`);
       const survey = await surveyResponse.json();
       
       // Verificar si ya votó
-      const voteCheckResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}/check-vote`, {
+      const voteCheckResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/check-vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ voterAddress: publicKey })
@@ -328,7 +330,7 @@ import Layout from '../../layouts/Layout.astro';
       const { hasVoted } = await voteCheckResponse.json();
       
       // Cargar resultados
-      const resultsResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}/results`);
+      const resultsResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/results`);
       const results = await resultsResponse.json();
       
       // Mostrar en modal
@@ -527,7 +529,7 @@ import Layout from '../../layouts/Layout.astro';
   // Editar encuesta
   async function editSurvey(id) {
     try {
-      const response = await fetch(`http://localhost:3000/api/surveys/${id}`);
+      const response = await fetch(`${API_URL}/api/surveys/${id}`);
       const survey = await response.json();
       
       // Llenar el formulario
@@ -586,7 +588,7 @@ import Layout from '../../layouts/Layout.astro';
     }
     
     try {
-      const response = await fetch(`http://localhost:3000/api/surveys/${id}`, {
+      const response = await fetch(`${API_URL}/api/surveys/${id}`, {
         method: 'DELETE'
       });
 
@@ -674,8 +676,8 @@ import Layout from '../../layouts/Layout.astro';
       // Guardar en MongoDB
 
       const url = isEditing 
-        ? `http://localhost:3000/api/surveys/${editingId}`
-        : 'http://localhost:3000/api/surveys';
+        ? `${API_URL}/api/surveys/${editingId}`
+        : `${API_URL}/api/surveys`;
         
       const method = isEditing ? 'PUT' : 'POST';
       

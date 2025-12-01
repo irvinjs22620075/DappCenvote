@@ -110,6 +110,8 @@ import Layout from '../../layouts/Layout.astro';
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
+  
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
   // Auto-detectar wallet conectada
   async function autoDetectWallet() {
@@ -131,7 +133,7 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar usuarios disponibles
   async function loadUsers() {
     try {
-      const response = await fetch('http://localhost:3000/api/users');
+      const response = await fetch(`${API_URL}/api/users`);
       allUsers = await response.json();
       renderUsers(allUsers);
     } catch (error) {
@@ -142,7 +144,7 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar candidatos para marcar usuarios que ya son candidatos
   async function loadCandidates() {
     try {
-      const response = await fetch('http://localhost:3000/api/candidates');
+      const response = await fetch(`${API_URL}/api/candidates`);
       const candidates = await response.json();
       
       // Crear un Set con las wallets de candidatos existentes
@@ -279,7 +281,7 @@ import Layout from '../../layouts/Layout.astro';
   // Editar candidato
   async function editCandidate(id) {
     try {
-      const response = await fetch(`http://localhost:3000/api/candidates/${id}`);
+      const response = await fetch(`${API_URL}/api/candidates/${id}`);
       const candidate = await response.json();
       
       // Llenar el formulario
@@ -313,7 +315,7 @@ import Layout from '../../layouts/Layout.astro';
     }
     
     try {
-      const response = await fetch(`http://localhost:3000/api/candidates/${id}`, {
+      const response = await fetch(`${API_URL}/api/candidates/${id}`, {
         method: 'DELETE'
       });
 
@@ -360,8 +362,8 @@ import Layout from '../../layouts/Layout.astro';
 
     try {
       const url = isEditing 
-        ? `http://localhost:3000/api/candidates/${editingId}`
-        : 'http://localhost:3000/api/candidates';
+        ? `${API_URL}/api/candidates/${editingId}`
+        : `${API_URL}/api/candidates`;
         
       const method = isEditing ? 'PUT' : 'POST';
       

@@ -92,7 +92,7 @@ class VotingService {
 
             // 4. Registrar voto en MongoDB
             console.log('📝 Registrando voto en la base de datos...');
-            const voteResponse = await fetch(`http://localhost:3000/api/surveys/${payload.surveyId}/vote`, {
+            const voteResponse = await fetch(`${import.meta.env.PUBLIC_API_URL || 'http://localhost:3000'}/api/surveys/${payload.surveyId}/vote`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
+import { fileURLToPath } from 'url';
 
 // Import Models
 import User from './models/User.js';
@@ -21,9 +22,18 @@ app.use(cors());
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+const connectDB = async () => {
+  if (mongoose.connection.readyState === 0) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('✅ Connected to MongoDB');
+    } catch (err) {
+      console.error('❌ MongoDB connection error:', err);
+    }
+  }
+};
+
+connectDB();
 
 // ===== PASSKEY/WEBAUTHN ENDPOINTS =====
 
@@ -481,9 +491,14 @@ app.get('/api/debug', async (req, res) => {
 });
 
 // ===== START SERVER =====
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 Passkey API: http://localhost:${PORT}/api/passkey/`);
-  console.log(`🔍 Debug: http://localhost:${PORT}/api/debug`);
-});
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📱 Passkey API: http://localhost:${PORT}/api/passkey/`);
+    console.log(`🔍 Debug: http://localhost:${PORT}/api/debug`);
+  });
+}
+
+export default app;

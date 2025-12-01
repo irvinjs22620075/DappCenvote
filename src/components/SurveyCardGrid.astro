@@ -94,6 +94,8 @@
 
 <script>
   import { freighterService } from '../services/FreighterService';
+  
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
   interface Survey {
     _id: string;
@@ -117,7 +119,7 @@
 
   async function loadSurveys() {
     try {
-      const response = await fetch('http://localhost:3000/api/surveys');
+      const response = await fetch(`${API_URL}/api/surveys`);
       const surveys: Survey[] = await response.json();
       
       const surveysGrid = document.getElementById('surveysGrid');
@@ -295,7 +297,7 @@
       // Verificar si el usuario ya votó
       let hasVoted = false;
       if (freighterService.publicKey) {
-        const checkResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}/check-vote`, {
+        const checkResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/check-vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ voterAddress: freighterService.publicKey })
@@ -306,13 +308,13 @@
       }
       
       // Cargar resultados actuales
-      const resultsResponse = await fetch(`http://localhost:3000/api/surveys/${surveyId}/results`);
+      const resultsResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/results`);
       const results = await resultsResponse.json();
       
       // Cargar candidatos
       const candidates = await Promise.all(
         candidateIds.map(async (id) => {
-          const response = await fetch(`http://localhost:3000/api/candidates/${id}`);
+          const response = await fetch(`${API_URL}/api/candidates/${id}`);
           return response.json();
         })
       );
@@ -505,7 +507,7 @@
       
       // 2. Registrar voto en backend
       console.log('📝 Registrando voto...');
-      const voteResponse = await fetch(`http://localhost:3000/api/surveys/${currentSurveyId}/vote`, {
+      const voteResponse = await fetch(`${API_URL}/api/surveys/${currentSurveyId}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
