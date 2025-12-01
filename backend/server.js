@@ -21,14 +21,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
+// Connect to MongoDB with proper options
 const connectDB = async () => {
   if (mongoose.connection.readyState === 0) {
     try {
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log('✅ Connected to MongoDB');
+      console.log('🔌 Connecting to MongoDB...');
+
+      // MongoDB connection options for better SSL/TLS handling
+      const options = {
+        retryWrites: true,
+        w: 'majority',
+        ssl: true,
+        tls: true,
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+      };
+
+      await mongoose.connect(process.env.MONGODB_URI, options);
+      console.log('✅ Connected to MongoDB successfully');
+      console.log(`📊 Database: ${mongoose.connection.name}`);
     } catch (err) {
-      console.error('❌ MongoDB connection error:', err);
+      console.error('❌ MongoDB connection error:');
+      console.error('   Error name:', err.name);
+      console.error('   Error message:', err.message);
+
+      // Provide helpful error messages
+      if (err.name === 'MongoNetworkError') {
+        console.error('\n💡 Network Error Tips:');
+        console.error('   1. Check if MongoDB Atlas IP whitelist includes your IP');
+        console.error('   2. Verify your internet connection');
+        console.error('   3. Check if MongoDB cluster is active');
+      } else if (err.name === 'MongooseServerSelectionError') {
+        console.error('\n💡 Server Selection Tips:');
+        console.error('   1. Verify MONGODB_URI in .env file');
+        console.error('   2. Check MongoDB Atlas cluster status');
+        console.error('   3. Ensure network access is configured correctly');
+      }
+
+      console.error('\n⚠️  Server will continue running but database operations will fail');
     }
   }
 };
