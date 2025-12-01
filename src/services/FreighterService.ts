@@ -49,6 +49,22 @@ export class FreighterService {
         return FreighterService.instance;
     }
 
+    // Helper para manejar diferentes formatos de respuesta de la API
+    private _extractIsConnected(result: any): boolean {
+        console.log('🔍 Analizando respuesta isConnected:', result);
+        if (typeof result === 'boolean') return result;
+        if (result && typeof result.isConnected === 'boolean') return result.isConnected;
+        return false;
+    }
+
+    private _extractAddress(result: any): string {
+        console.log('🔍 Analizando respuesta getAddress:', result);
+        if (typeof result === 'string') return result;
+        if (result && typeof result.address === 'string') return result.address;
+        if (result && typeof result.publicKey === 'string') return result.publicKey;
+        return '';
+    }
+
     private loadFromStorage(): void {
         if (typeof window === 'undefined') return;
 
@@ -97,10 +113,11 @@ export class FreighterService {
         try {
             // Verificar si Freighter está instalado usando la API oficial
             const result = await isConnected();
-            console.log('🔍 Freighter instalado:', result.isConnected);
-            return result.isConnected;
+            const connected = this._extractIsConnected(result);
+            console.log('🔍 Freighter instalado (interpretado):', connected);
+            return connected;
         } catch (error) {
-            console.log('❌ Freighter no está instalado');
+            console.log('❌ Freighter no está instalado (error):', error);
             return false;
         }
     }
@@ -112,13 +129,15 @@ export class FreighterService {
             }
 
             const result = await isConnected();
+            const connected = this._extractIsConnected(result);
 
             console.log('Estado de conexión:', {
-                isConnected: result.isConnected,
+                rawResult: result,
+                isConnected: connected,
                 hasPublicKey: !!this._publicKey
             });
 
-            this._isConnected = result.isConnected;
+            this._isConnected = connected;
 
             // Si está conectado, intentar obtener detalles de la red si no los tenemos
             if (this._isConnected) {
@@ -126,7 +145,7 @@ export class FreighterService {
                     // Si no tenemos public key, intentar obtenerla
                     if (!this._publicKey) {
                         const addressResult = await getAddress();
-                        this._publicKey = addressResult.address;
+                        this._publicKey = this._extractAddress(addressResult);
                     }
 
                     // Siempre actualizar network details para asegurar que tenemos passphrase
@@ -137,7 +156,7 @@ export class FreighterService {
                 }
             }
 
-            return result.isConnected;
+            return connected;
         } catch (e) {
             console.error('Error al verificar la conexión:', e);
             return false;
@@ -160,13 +179,18 @@ export class FreighterService {
             // Verificar si ya tenemos permiso
             console.log('🔐 Verificando permisos...');
             const allowedResult = await isAllowed();
-            const allowed = allowedResult.isAllowed;
+            // isAllowed suele devolver { isAllowed: boolean } o boolean
+            const allowed = (typeof allowedResult === 'boolean') ? allowedResult : allowedResult.isAllowed;
+            console.log('   Permiso actual:', allowed);
 
             if (!allowed) {
                 console.log('📝 Solicitando acceso a Freighter...');
                 const accessResult = await setAllowed();
 
-                if (!accessResult) {
+                // setAllowed devuelve { isAllowed: boolean } o boolean
+                const accessGranted = (typeof accessResult === 'boolean') ? accessResult : accessResult.isAllowed;
+
+                if (!accessGranted) {
                     return {
                         success: false,
                         message: 'Acceso denegado. Por favor acepta la solicitud de conexión en Freighter.'
@@ -176,8 +200,28 @@ export class FreighterService {
 
             // Obtener la clave pública
             console.log('🔑 Obteniendo dirección pública...');
-            const addressResult = allowed ? await getAddress() : await requestAccess();
-            const publicKey = addressResult.address;
+            let addressResult;
+            if (allowed) {
+                addressResult = await getAddress();
+            } else {
+                // requestAccess está deprecado en favor de setAllowed + getAddress, pero por si acaso
+                try {
+                    addressResult = await requestAccess();
+                } catch (e) {
+                    console.log('requestAccess falló, intentando getAddress:', e);
+                    addressResult = await getAddress();
+                }
+            }
+
+            const publicKey = this._extractAddress(addressResult);
+
+            if (!publicKey) {
+                return {
+                    success: false,
+                    message: 'No se pudo obtener la clave pública.'
+                };
+            }
+
             this._publicKey = publicKey;
 
             // Verificar si es la cuenta esperada

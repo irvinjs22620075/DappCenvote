@@ -37,6 +37,8 @@
 <script>
 import { freighterService } from '../services/FreighterService';
 
+console.log('🚀 WalletConnector script cargado');
+
 const connectButton = document.getElementById('connectWalletBtn') as HTMLButtonElement | null;
 const disconnectButton = document.getElementById('disconnectBtn') as HTMLButtonElement | null;
 const statusElement = document.getElementById('walletStatus') as HTMLElement | null;
@@ -44,6 +46,12 @@ const loadingIndicator = document.getElementById('loadingIndicator') as HTMLElem
 const walletAddress = document.getElementById('walletAddress') as HTMLElement | null;
 const walletBalance = document.getElementById('walletBalance') as HTMLElement | null;
 const networkBadge = document.getElementById('networkBadge') as HTMLElement | null;
+
+if (connectButton) {
+  console.log('✅ Botón de conectar encontrado');
+} else {
+  console.error('❌ Botón de conectar NO encontrado');
+}
 
 function showLoading(show: boolean): void {
   if (!loadingIndicator || !connectButton || !statusElement) return;
@@ -114,11 +122,14 @@ async function updateUI(isConnected: boolean, publicKey?: string, network?: stri
 }
 
 async function handleConnect(): Promise<void> {
+  console.log('🖱️ Click en conectar wallet');
   try {
     showLoading(true);
 
     // Verificar si Freighter está instalado
     const isInstalled = await freighterService.isFreighterInstalled();
+    console.log('Status instalación:', isInstalled);
+    
     if (!isInstalled) {
       showLoading(false);
       const shouldInstall = confirm('Freighter no está instalado. ¿Deseas ir a la página de instalación?');
@@ -195,7 +206,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-connectButton?.addEventListener('click', handleConnect);
+if (connectButton) {
+    connectButton.addEventListener('click', handleConnect);
+    console.log('✅ Event listener agregado al botón de conectar');
+}
+
 disconnectButton?.addEventListener('click', handleDisconnect);
 walletAddress?.addEventListener('click', copyAddressToClipboard);
 
