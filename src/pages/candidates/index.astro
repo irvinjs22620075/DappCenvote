@@ -72,7 +72,6 @@ import Layout from '../../layouts/Layout.astro';
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
-  import { stellarContractService } from '../../services/StellarContractService';
 
   // Auto-detectar wallet conectada
   async function autoDetectWallet() {
@@ -266,25 +265,19 @@ import Layout from '../../layouts/Layout.astro';
     };
 
     try {
-      // Intentar registrar en blockchain si no estamos editando
+      // Verificar que el usuario exista antes de registrar candidato
       if (!isEditing) {
-        console.log('🔗 Intentando registrar candidato en blockchain...');
-        const blockchainResult = await stellarContractService.registerCandidateOnChain({
-          wallet: publicKey,
-          name: candidateData.name,
-          rfc: candidateData.rfc
-        });
-
-        if (blockchainResult.success) {
-          console.log('✅ Candidato registrado en blockchain:', blockchainResult.transactionHash);
-          alert(`✅ Candidato registrado en blockchain!\nTx: ${blockchainResult.transactionHash?.substring(0, 16)}...`);
-        } else {
-          console.warn('⚠️ No se pudo registrar en blockchain:', blockchainResult.message);
-          if (!confirm(`No se pudo registrar en blockchain: ${blockchainResult.message}\n¿Continuar con registro local?`)) {
-            return;
-          }
+        const usersResponse = await fetch('http://localhost:3000/api/users');
+        const users = await usersResponse.json();
+        const userExists = users.some(user => user.wallet_address === publicKey);
+        
+        if (!userExists) {
+          alert('❌ Error: Debes estar registrado como usuario antes de registrarte como candidato.\n\nPor favor, ve a la sección de Usuarios y regístrate primero.');
+          return;
         }
       }
+
+      // Guardar en MongoDB
 
       const url = isEditing 
         ? `http://localhost:3000/api/candidates/${editingId}`
@@ -301,7 +294,7 @@ import Layout from '../../layouts/Layout.astro';
       });
 
       if (response.ok) {
-        alert(isEditing ? 'Candidato actualizado exitosamente' : 'Candidato registrado en backend');
+        alert(isEditing ? 'Candidato actualizado exitosamente' : 'Candidato registrado exitosamente');
         cancelEdit();
         loadCandidates();
       } else {

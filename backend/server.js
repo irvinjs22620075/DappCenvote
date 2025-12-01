@@ -242,6 +242,16 @@ app.delete('/api/users/:id', async (req, res) => {
 // ===== CANDIDATOS ENDPOINTS =====
 app.post('/api/candidates', async (req, res) => {
   try {
+    // Validar que el usuario existe antes de crear candidato
+    if (req.body.wallet_address) {
+      const user = await User.findOne({ wallet_address: req.body.wallet_address });
+      if (!user) {
+        return res.status(400).json({
+          error: 'Debe existir un usuario registrado con esta wallet antes de registrar un candidato'
+        });
+      }
+    }
+
     const candidateId = `candidate-${Date.now()}`;
     const candidate = await Candidate.create({ _id: candidateId, ...req.body });
     res.status(201).json(candidate);

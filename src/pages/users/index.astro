@@ -88,7 +88,6 @@ import Layout from '../../layouts/Layout.astro';
 
   // Conexión con Freighter
   import { freighterService } from '../../services/FreighterService';
-  import { stellarContractService } from '../../services/StellarContractService';
 
   // Auto-detectar wallet conectada
   async function autoDetectWallet() {
@@ -294,31 +293,7 @@ import Layout from '../../layouts/Layout.astro';
     };
 
     try {
-      // Si no estamos editando, intentar registrar en blockchain primero
-      if (!isEditing) {
-        console.log('🔗 Intentando registrar usuario en blockchain...');
-        const blockchainResult = await stellarContractService.registerUserOnChain({
-          wallet: publicKey,
-          first_name: userData.first_name,
-          paternal_last_name: userData.paternal_last_name,
-          maternal_last_name: userData.maternal_last_name,
-          phone: userData.phone,
-          email: userData.email
-        });
-
-        if (blockchainResult.success) {
-          console.log('✅ Usuario registrado en blockchain:', blockchainResult.transactionHash);
-          alert(`✅ Usuario registrado en blockchain!\nTx: ${blockchainResult.transactionHash?.substring(0, 16)}...`);
-        } else {
-          console.warn('⚠️ No se pudo registrar en blockchain:', blockchainResult.message);
-          // Continuar con el registro en backend aunque falle blockchain
-          if (!confirm(`No se pudo registrar en blockchain: ${blockchainResult.message}\n¿Deseas continuar solo con registro local?`)) {
-            return;
-          }
-        }
-      }
-
-      // Guardar en backend (cache)
+      // Guardar en MongoDB
       const url = isEditing 
         ? `http://localhost:3000/api/users/${editingId}`
         : 'http://localhost:3000/api/users';
@@ -334,11 +309,11 @@ import Layout from '../../layouts/Layout.astro';
       });
 
       if (response.ok) {
-        alert(isEditing ? 'Usuario actualizado exitosamente' : 'Usuario registrado exitosamente en backend');
+        alert(isEditing ? 'Usuario actualizado exitosamente' : 'Usuario registrado exitosamente');
         cancelEdit();
         loadUsers();
       } else {
-        throw new Error('Error al guardar usuario en backend');
+        throw new Error('Error al guardar usuario');
       }
     } catch (error) {
       console.error('Error:', error);
