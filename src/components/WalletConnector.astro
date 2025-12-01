@@ -34,200 +34,178 @@
   </div>
 </div>
 
-<script is:inline>
-(async function() {
-  // Guard: Only run in browser
-  if (typeof window === 'undefined') {
-    console.log('SSR: Skipping wallet connector initialization');
-    return;
-  }
+<script>
+import { freighterService } from '../services/FreighterService';
 
+const connectButton = document.getElementById('connectWalletBtn') as HTMLButtonElement | null;
+const disconnectButton = document.getElementById('disconnectBtn') as HTMLButtonElement | null;
+const statusElement = document.getElementById('walletStatus') as HTMLElement | null;
+const loadingIndicator = document.getElementById('loadingIndicator') as HTMLElement | null;
+const walletAddress = document.getElementById('walletAddress') as HTMLElement | null;
+const walletBalance = document.getElementById('walletBalance') as HTMLElement | null;
+const networkBadge = document.getElementById('networkBadge') as HTMLElement | null;
+
+function showLoading(show: boolean): void {
+  if (!loadingIndicator || !connectButton || !statusElement) return;
+  
+  if (show) {
+    loadingIndicator.classList.remove('hidden');
+    loadingIndicator.classList.add('flex');
+    connectButton.classList.add('hidden');
+    statusElement.classList.add('hidden');
+  } else {
+    loadingIndicator.classList.add('hidden');
+    loadingIndicator.classList.remove('flex');
+  }
+}
+
+async function updateBalance(): Promise<void> {
+  if (!walletBalance) return;
+  
+  const balance = await freighterService.getAccountBalance();
+  if (balance) {
+    walletBalance.textContent = `💰 ${parseFloat(balance.balance).toFixed(2)} ${balance.asset}`;
+  } else {
+    walletBalance.textContent = '';
+  }
+}
+
+async function updateUI(isConnected: boolean, publicKey?: string, network?: string): Promise<void> {
+  if (!connectButton || !statusElement) return;
+
+  if (isConnected && publicKey) {
+    // Mostrar estado conectado
+    connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-700 group-hover:from-emerald-700 group-hover:to-emerald-800 transition-all duration-300"></div><span class="relative inline-flex items-center gap-2">✅ <span>Conectada</span></span>`;
+    connectButton.disabled = true;
+    connectButton.classList.remove('hidden');
+    
+    if (walletAddress) {
+      const shortAddress = `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`;
+      walletAddress.textContent = shortAddress;
+      walletAddress.setAttribute('data-full-address', publicKey);
+    }
+
+    if (networkBadge && network) {
+      networkBadge.textContent = network;
+      networkBadge.className = network === 'TESTNET' 
+        ? 'text-xs px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 font-medium'
+        : 'text-xs px-2 py-0.5 rounded-full bg-yellow-500/30 text-yellow-200 font-medium';
+    }
+
+    statusElement.classList.remove('hidden');
+    statusElement.classList.add('flex');
+
+    // Actualizar balance
+    await updateBalance();
+  } else {
+    // Mostrar estado desconectado
+    connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 group-hover:from-blue-700 group-hover:to-blue-800 transition-all duration-300"></div><div class="absolute inset-0 opacity-0 group-hover:opacity-100 bg-blue-500/20 transition-opacity duration-300"></div><span class="relative inline-flex items-center gap-2">🔗 <span>Conectar Wallet</span></span>`;
+    connectButton.disabled = false;
+    connectButton.classList.remove('hidden');
+    statusElement.classList.add('hidden');
+    statusElement.classList.remove('flex');
+
+    if (walletBalance) {
+      walletBalance.textContent = '';
+    }
+  }
+  
+  showLoading(false);
+}
+
+async function handleConnect(): Promise<void> {
   try {
-    // Dynamic import to ensure browser-only execution
-    const { freighterService } = await import('/src/services/FreighterService.ts');
+    showLoading(true);
 
-    const connectButton = document.getElementById('connectWalletBtn');
-    const disconnectButton = document.getElementById('disconnectBtn');
-    const statusElement = document.getElementById('walletStatus');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const walletAddress = document.getElementById('walletAddress');
-    const walletBalance = document.getElementById('walletBalance');
-    const networkBadge = document.getElementById('networkBadge');
-
-    function showLoading(show) {
-      if (!loadingIndicator || !connectButton || !statusElement) return;
-      
-      if (show) {
-        loadingIndicator.classList.remove('hidden');
-        loadingIndicator.classList.add('flex');
-        connectButton.classList.add('hidden');
-        statusElement.classList.add('hidden');
-      } else {
-        loadingIndicator.classList.add('hidden');
-        loadingIndicator.classList.remove('flex');
-      }
-    }
-
-    async function updateBalance() {
-      if (!walletBalance) return;
-      
-      const balance = await freighterService.getAccountBalance();
-      if (balance) {
-        walletBalance.textContent = `💰 ${parseFloat(balance.balance).toFixed(2)} ${balance.asset}`;
-      } else {
-        walletBalance.textContent = '';
-      }
-    }
-
-    async function updateUI(isConnected, publicKey, network) {
-      if (!connectButton || !statusElement) return;
-
-      if (isConnected && publicKey) {
-        // Mostrar estado conectado
-        connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-700 group-hover:from-emerald-700 group-hover:to-emerald-800 transition-all duration-300"></div><span class="relative inline-flex items-center gap-2">✅ <span>Conectada</span></span>`;
-        connectButton.disabled = true;
-        connectButton.classList.remove('hidden');
-        
-        if (walletAddress) {
-          const shortAddress = `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`;
-          walletAddress.textContent = shortAddress;
-          walletAddress.setAttribute('data-full-address', publicKey);
-        }
-
-        if (networkBadge && network) {
-          networkBadge.textContent = network;
-          networkBadge.className = network === 'TESTNET' 
-            ? 'text-xs px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 font-medium'
-            : 'text-xs px-2 py-0.5 rounded-full bg-yellow-500/30 text-yellow-200 font-medium';
-        }
-
-        statusElement.classList.remove('hidden');
-        statusElement.classList.add('flex');
-
-        // Actualizar balance
-        await updateBalance();
-      } else {
-        // Mostrar estado desconectado
-        connectButton.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 group-hover:from-blue-700 group-hover:to-blue-800 transition-all duration-300"></div><div class="absolute inset-0 opacity-0 group-hover:opacity-100 bg-blue-500/20 transition-opacity duration-300"></div><span class="relative inline-flex items-center gap-2">🔗 <span>Conectar Wallet</span></span>`;
-        connectButton.disabled = false;
-        connectButton.classList.remove('hidden');
-        statusElement.classList.add('hidden');
-        statusElement.classList.remove('flex');
-
-        if (walletBalance) {
-          walletBalance.textContent = '';
-        }
-      }
-      
+    // Verificar si Freighter está instalado
+    const isInstalled = await freighterService.isFreighterInstalled();
+    if (!isInstalled) {
       showLoading(false);
-    }
-
-    async function handleConnect() {
-      try {
-        showLoading(true);
-
-        // Verificar si Freighter está instalado
-        const isInstalled = await freighterService.isFreighterInstalled();
-        if (!isInstalled) {
-          showLoading(false);
-          const shouldInstall = confirm('Freighter no está instalado. ¿Deseas ir a la página de instalación?');
-          if (shouldInstall) {
-            window.open('https://www.freighter.app', '_blank');
-          }
-          return;
-        }
-
-        // Intentar conectar
-        const result = await freighterService.connect();
-        console.log('Resultado de conexión:', result);
-        
-        if (!result.success) {
-          showLoading(false);
-          alert(`❌ ${result.message}`);
-          await updateUI(false);
-          return;
-        }
-
-        const networkDetails = freighterService.networkDetails;
-        await updateUI(true, result.publicKey, networkDetails?.network);
-        
-        // Mostrar notificación de éxito
-        console.log('✅ Wallet conectada exitosamente');
-      } catch (error) {
-        showLoading(false);
-        console.error('Error al conectar:', error);
-        alert('❌ Error inesperado al conectar con Freighter');
-        await updateUI(false);
+      const shouldInstall = confirm('Freighter no está instalado. ¿Deseas ir a la página de instalación?');
+      if (shouldInstall) {
+        window.open('https://www.freighter.app', '_blank');
       }
+      return;
     }
 
-    async function handleDisconnect() {
-      if (!confirm('¿Deseas desconectar tu wallet?')) return;
-      
-      try {
-        await freighterService.disconnect();
-        await updateUI(false);
-        console.log('✅ Wallet desconectada');
-      } catch (error) {
-        console.error('Error al desconectar:', error);
-      }
+    // Intentar conectar
+    const result = await freighterService.connect();
+    console.log('Resultado de conexión:', result);
+    
+    if (!result.success) {
+      showLoading(false);
+      alert(`❌ ${result.message}`);
+      await updateUI(false);
+      return;
     }
 
-    function copyAddressToClipboard() {
-      if (!walletAddress) return;
-      
-      const fullAddress = walletAddress.getAttribute('data-full-address');
-      if (fullAddress) {
-        navigator.clipboard.writeText(fullAddress).then(() => {
-          const originalText = walletAddress.textContent;
-          walletAddress.textContent = '✓ Copiado!';
-          setTimeout(() => {
-            if (walletAddress && originalText) {
-              walletAddress.textContent = originalText;
-            }
-          }, 1500);
-        }).catch(err => {
-          console.error('Error al copiar:', err);
-        });
-      }
-    }
-
-    // Initialize on DOMContentLoaded
-    async function initialize() {
-      console.log('🔄 Verificando conexión existente...');
-      
-      const isConnected = await freighterService.checkConnection();
-      if (isConnected && freighterService.publicKey) {
-        const networkDetails = freighterService.networkDetails;
-        await updateUI(true, freighterService.publicKey, networkDetails?.network);
-        console.log('✅ Reconectado automáticamente');
-      }
-
-      // Attach event listeners
-      if (connectButton) connectButton.addEventListener('click', handleConnect);
-      if (disconnectButton) disconnectButton.addEventListener('click', handleDisconnect);
-      if (walletAddress) walletAddress.addEventListener('click', copyAddressToClipboard);
-
-      // Listen for wallet events
-      window.addEventListener('walletConnected', async (event) => {
-        const { publicKey, network } = event.detail;
-        await updateUI(true, publicKey, network);
-      });
-
-      window.addEventListener('walletDisconnected', async () => {
-        await updateUI(false);
-      });
-    }
-
-    // Run initialization when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initialize);
-    } else {
-      initialize();
-    }
-
+    const networkDetails = freighterService.networkDetails;
+    await updateUI(true, result.publicKey, networkDetails?.network);
+    
+    // Mostrar notificación de éxito
+    console.log('✅ Wallet conectada exitosamente');
   } catch (error) {
-    console.error('Error loading wallet connector:', error);
+    showLoading(false);
+    console.error('Error al conectar:', error);
+    alert('❌ Error inesperado al conectar con Freighter');
+    await updateUI(false);
   }
-})();
+}
+
+async function handleDisconnect(): Promise<void> {
+  if (!confirm('¿Deseas desconectar tu wallet?')) return;
+  
+  try {
+    await freighterService.disconnect();
+    await updateUI(false);
+    console.log('✅ Wallet desconectada');
+  } catch (error) {
+    console.error('Error al desconectar:', error);
+  }
+}
+
+function copyAddressToClipboard(): void {
+  if (!walletAddress) return;
+  
+  const fullAddress = walletAddress.getAttribute('data-full-address');
+  if (fullAddress) {
+    navigator.clipboard.writeText(fullAddress).then(() => {
+      const originalText = walletAddress.textContent;
+      walletAddress.textContent = '✓ Copiado!';
+      setTimeout(() => {
+        if (walletAddress && originalText) {
+          walletAddress.textContent = originalText;
+        }
+      }, 1500);
+    }).catch(err => {
+      console.error('Error al copiar:', err);
+    });
+  }
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🔄 Verificando conexión existente...');
+  
+  const isConnected = await freighterService.checkConnection();
+  if (isConnected && freighterService.publicKey) {
+    const networkDetails = freighterService.networkDetails;
+    await updateUI(true, freighterService.publicKey, networkDetails?.network);
+    console.log('✅ Reconectado automáticamente');
+  }
+});
+
+connectButton?.addEventListener('click', handleConnect);
+disconnectButton?.addEventListener('click', handleDisconnect);
+walletAddress?.addEventListener('click', copyAddressToClipboard);
+
+// Escuchar cambios en la wallet
+window.addEventListener('walletConnected', (async (event: CustomEvent) => {
+  const { publicKey, network } = event.detail as { publicKey: string; network: string };
+  await updateUI(true, publicKey, network);
+}) as EventListener);
+
+window.addEventListener('walletDisconnected', (async () => {
+  await updateUI(false);
+}) as EventListener);
 </script>
