@@ -77,180 +77,193 @@ import Layout from '../../layouts/Layout.astro';
   </div>
 </Layout>
 
-<script>
-  let publicKey = null;
-  let isEditing = false;
-  let editingId = null;
+<script is:inline>
+(async function() {
+  // Guard: Only run in browser
+  if (typeof window === 'undefined') {
+    console.log('SSR: Skipping users page initialization');
+    return;
+  }
 
-  // Conexión con Freighter
-  import { freighterService } from '../../services/FreighterService';
-  
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+  try {
+    // Dynamic import to ensure browser-only execution
+    const { freighterService } = await import('/src/services/FreighterService.ts');
 
-  // Cargar usuarios
-  async function loadUsers() {
-    try {
-      const response = await fetch(`${API_URL}/api/users`);
-      const users = await response.json();
-      const usersList = document.getElementById('usersList');
-      
-      if (users.length === 0) {
-        usersList.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-6 py-8 text-center text-gray-400">
-              No hay usuarios registrados aún
+    let publicKey = null;
+    let isEditing = false;
+    let editingId = null;
+
+    const API_URL = window.PUBLIC_API_URL || 'http://localhost:3000';
+
+    // Cargar usuarios
+    async function loadUsers() {
+      try {
+        const response = await fetch(`${API_URL}/api/users`);
+        const users = await response.json();
+        const usersList = document.getElementById('usersList');
+        
+        if (users.length === 0) {
+          usersList.innerHTML = `
+            <tr>
+              <td colspan="5" class="px-6 py-8 text-center text-gray-400">
+                No hay usuarios registrados aún
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        
+        usersList.innerHTML = users.map(user => `
+          <tr class="hover:bg-white/10 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap text-white font-medium">
+              ${user.first_name} ${user.paternal_last_name} ${user.maternal_last_name}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-gray-300">${user.email}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-gray-300">${user.phone || 'N/A'}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="text-sm text-gray-400 font-mono">${user.wallet_address ? user.wallet_address.slice(0, 8) + '...' : 'No conectada'}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap space-x-2">
+              <button onclick="editUser('${user._id}')"
+                class="text-blue-400 hover:text-blue-300 font-semibold transition-colors">✏️ Editar</button>
+              <button onclick="deleteUser('${user._id}')"
+                class="text-red-400 hover:text-red-300 font-semibold transition-colors">🗑️ Eliminar</button>
             </td>
           </tr>
-        `;
+        `).join('');
+      } catch (error) {
+        console.error('Error al cargar usuarios:', error);
+      }
+    }
+
+    // Editar usuario
+    async function editUser(id) {
+      try {
+        const response = await fetch(`${API_URL}/api/users/${id}`);
+        const user = await response.json();
+        
+        // Llenar el formulario
+        document.getElementById('userId').value = user._id;
+        document.getElementById('first_name').value = user.first_name;
+        document.getElementById('paternal_last_name').value = user.paternal_last_name;
+        document.getElementById('maternal_last_name').value = user.maternal_last_name;
+        document.getElementById('phone').value = user.phone;
+        document.getElementById('email').value = user.email;
+        
+        publicKey = user.wallet_address;
+        
+        // Cambiar el botón de submit
+        isEditing = true;
+        editingId = id;
+        document.getElementById('submitBtnText').textContent = '💾 Actualizar Usuario';
+        document.getElementById('cancelBtn').style.display = 'inline-block';
+        
+        // Scroll al formulario
+        document.getElementById('userForm').scrollIntoView({ behavior: 'smooth' });
+      } catch (error) {
+        console.error('Error al cargar usuario:', error);
+        alert('Error al cargar datos del usuario');
+      }
+    }
+
+    // Eliminar usuario
+    async function deleteUser(id) {
+      if (!confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
         return;
       }
       
-      usersList.innerHTML = users.map(user => `
-        <tr class="hover:bg-white/10 transition-colors">
-          <td class="px-6 py-4 whitespace-nowrap text-white font-medium">
-            ${user.first_name} ${user.paternal_last_name} ${user.maternal_last_name}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-gray-300">${user.email}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-gray-300">${user.phone || 'N/A'}</td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="text-sm text-gray-400 font-mono">${user.wallet_address ? user.wallet_address.slice(0, 8) + '...' : 'No conectada'}</span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap space-x-2">
-            <button onclick="editUser('${user._id}')"
-              class="text-blue-400 hover:text-blue-300 font-semibold transition-colors">✏️ Editar</button>
-            <button onclick="deleteUser('${user._id}')"
-              class="text-red-400 hover:text-red-300 font-semibold transition-colors">🗑️ Eliminar</button>
-          </td>
-        </tr>
-      `).join('');
-    } catch (error) {
-      console.error('Error al cargar usuarios:', error);
-    }
-  }
+      try {
+        const response = await fetch(`${API_URL}/api/users/${id}`, {
+          method: 'DELETE'
+        });
 
-  // Editar usuario
-  async function editUser(id) {
-    try {
-      const response = await fetch(`${API_URL}/api/users/${id}`);
-      const user = await response.json();
-      
-      // Llenar el formulario
-      document.getElementById('userId').value = user._id;
-      document.getElementById('first_name').value = user.first_name;
-      document.getElementById('paternal_last_name').value = user.paternal_last_name;
-      document.getElementById('maternal_last_name').value = user.maternal_last_name;
-      document.getElementById('phone').value = user.phone;
-      document.getElementById('email').value = user.email;
-      
-      publicKey = user.wallet_address;
-      
-      // Cambiar el botón de submit
-      isEditing = true;
-      editingId = id;
-      document.getElementById('submitBtnText').textContent = '💾 Actualizar Usuario';
-      document.getElementById('cancelBtn').style.display = 'inline-block';
-      
-      // Scroll al formulario
-      document.getElementById('userForm').scrollIntoView({ behavior: 'smooth' });
-    } catch (error) {
-      console.error('Error al cargar usuario:', error);
-      alert('Error al cargar datos del usuario');
-    }
-  }
-
-  // Eliminar usuario
-  async function deleteUser(id) {
-    if (!confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${API_URL}/api/users/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        alert('Usuario eliminado exitosamente');
-        loadUsers();
-      } else {
-        throw new Error('Error al eliminar usuario');
+        if (response.ok) {
+          alert('Usuario eliminado exitosamente');
+          loadUsers();
+        } else {
+          throw new Error('Error al eliminar usuario');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al eliminar usuario');
       }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error al eliminar usuario');
     }
-  }
 
-  // Cancelar edición
-  function cancelEdit() {
-    isEditing = false;
-    editingId = null;
-    document.getElementById('userForm').reset();
-    document.getElementById('userId').value = '';
-    document.getElementById('submitBtnText').textContent = '✨ Registrar Usuario';
-    document.getElementById('cancelBtn').style.display = 'none';
-    
-    // Limpiar public key
-    publicKey = null;
-  }
+    // Cancelar edición
+    function cancelEdit() {
+      isEditing = false;
+      editingId = null;
+      document.getElementById('userForm').reset();
+      document.getElementById('userId').value = '';
+      document.getElementById('submitBtnText').textContent = '✨ Registrar Usuario';
+      document.getElementById('cancelBtn').style.display = 'none';
+      
+      // Limpiar public key
+      publicKey = null;
+    }
 
-  // Registro o actualización de usuario
-  document.getElementById('userForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+    // Registro o actualización de usuario
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-    const formData = new FormData(e.target);
-    const userData = {
-      first_name: formData.get('first_name'),
-      paternal_last_name: formData.get('paternal_last_name'),
-      maternal_last_name: formData.get('maternal_last_name'),
-      phone: formData.get('phone'),
-      email: formData.get('email'),
-      wallet_address: publicKey || null  // Opcional: usar wallet conectada o null
-    };
+      const formData = new FormData(e.target);
+      const userData = {
+        first_name: formData.get('first_name'),
+        paternal_last_name: formData.get('paternal_last_name'),
+        maternal_last_name: formData.get('maternal_last_name'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+        wallet_address: publicKey || null  // Opcional: usar wallet conectada o null
+      };
 
-    try {
-      // Guardar en MongoDB
-      const url = isEditing 
-        ? `${API_URL}/api/users/${editingId}`
-        : `${API_URL}/api/users`;
+      try {
+        // Guardar en MongoDB
+        const url = isEditing 
+          ? `${API_URL}/api/users/${editingId}`
+          : `${API_URL}/api/users`;
+          
+        const method = isEditing ? 'PUT' : 'POST';
         
-      const method = isEditing ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData)
-      });
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userData)
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (response.ok) {
-        alert(isEditing ? 'Usuario actualizado exitosamente' : 'Usuario registrado exitosamente');
-        cancelEdit();
-        loadUsers();
-      } else {
-        // Mostrar el error específico del backend
-        const errorMsg = data.error || 'Error desconocido al guardar usuario';
-        throw new Error(errorMsg);
+        if (response.ok) {
+          alert(isEditing ? 'Usuario actualizado exitosamente' : 'Usuario registrado exitosamente');
+          cancelEdit();
+          loadUsers();
+        } else {
+          // Mostrar el error específico del backend
+          const errorMsg = data.error || 'Error desconocido al guardar usuario';
+          throw new Error(errorMsg);
+        }
+      } catch (error) {
+        console.error('Error completo:', error);
+        alert('Error al guardar usuario: ' + error.message);
       }
-    } catch (error) {
-      console.error('Error completo:', error);
-      alert('Error al guardar usuario: ' + error.message);
-    }
-  });
+    });
 
-  // Event Listeners
-  document.addEventListener('DOMContentLoaded', async () => {
-    document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
-    
-    // Cargar usuarios
-    loadUsers();
-  });
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('cancelBtn').addEventListener('click', cancelEdit);
+      
+      // Cargar usuarios
+      loadUsers();
+    });
 
-  // Hacer funciones globales
-  window.editUser = editUser;
-  window.deleteUser = deleteUser;
+    // Hacer funciones globales
+    window.editUser = editUser;
+    window.deleteUser = deleteUser;
+
+  } catch (error) {
+    console.error('Error loading users page:', error);
+  }
+})();
 </script>
 </Layout>

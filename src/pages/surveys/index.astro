@@ -89,16 +89,24 @@ import Layout from '../../layouts/Layout.astro';
   </div>
 </Layout>
 
-<script>
-  let publicKey = null;
-  let isEditing = false;
-  let editingId = null;
-  let currentSurveyId = null;
+<script is:inline>
+(async function() {
+  // Guard: Only run in browser
+  if (typeof window === 'undefined') {
+    console.log('SSR: Skipping surveys page initialization');
+    return;
+  }
 
-  // Conexión con Freighter
-  import { freighterService } from '../../services/FreighterService';
+  try {
+    // Dynamic import to ensure browser-only execution
+    const { freighterService } = await import('/src/services/FreighterService.ts');
+
+    let publicKey = null;
+    let isEditing = false;
+    let editingId = null;
+    let currentSurveyId = null;
   
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+    const API_URL = window.PUBLIC_API_URL || 'http://localhost:3000';
 
   // Auto-detectar wallet conectada
   async function autoDetectWallet() {
@@ -724,6 +732,11 @@ import Layout from '../../layouts/Layout.astro';
   window.openVoteModal = openVoteModal;
   window.closeVoteModal = closeVoteModal;
   window.vote = vote;
+
+  } catch (error) {
+    console.error('Error loading surveys page:', error);
+  }
+})();
 
 </script>
 
