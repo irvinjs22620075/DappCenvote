@@ -18,44 +18,7 @@ const { title } = Astro.props;
 		<meta name="generator" content={Astro.generator} />
 		<meta name="theme-color" content="#0F172A" />
 		<title>{title}</title>
-		<!-- Cargar Freighter API desde CDN -->
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/1.7.1/index.min.js"></script>
-		<script>
-			// Freighter Wallet Integration
-			const initFreighter = () => {
-				let attempts = 0;
-				const maxAttempts = 10;
-				
-				const checkFreighter = () => {
-					console.log('Verificando Freighter...', {
-						hasFreighter: !!window.freighter,
-						hasFreighterApi: !!window.freighterApi
-					});
 
-					if (window.freighter && window.freighterApi) {
-						console.log('Freighter detectado correctamente');
-						return;
-					}
-
-					attempts++;
-					if (attempts < maxAttempts) {
-						console.log(`Intento ${attempts} de ${maxAttempts}`);
-						setTimeout(checkFreighter, 1000);
-					} else {
-						console.log('No se pudo detectar Freighter después de varios intentos');
-					}
-				};
-
-				// Iniciar verificación cuando el DOM esté listo
-				if (document.readyState === 'loading') {
-					document.addEventListener('DOMContentLoaded', checkFreighter);
-				} else {
-					checkFreighter();
-				}
-			};
-
-			initFreighter();
-		</script>
 	</head>
 	<body class="bg-gradient-to-br from-slate-950 via-purple-900 to-slate-950 min-h-screen text-gray-100">
 		<!-- Efecto de fondo animado -->
