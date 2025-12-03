@@ -91,18 +91,6 @@ import Layout from '../../layouts/Layout.astro';
   async function loadUsers() {
     try {
       const response = await fetch(`${API_URL}/api/users`);
-      
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Error del servidor (${response.status}): ${text.substring(0, 100)}...`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(`Respuesta inválida del servidor: ${text.substring(0, 100)}...`);
-      }
-
       const users = await response.json();
       const usersList = document.getElementById('usersList');
       
@@ -137,15 +125,6 @@ import Layout from '../../layouts/Layout.astro';
       `).join('');
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
-      const usersList = document.getElementById('usersList');
-      usersList.innerHTML = `
-        <tr>
-          <td colspan="5" class="px-6 py-8 text-center text-red-400">
-            Error al cargar usuarios. Por favor verifica tu conexión o intenta más tarde.<br>
-            <span class="text-xs text-gray-500">${error.message}</span>
-          </td>
-        </tr>
-      `;
     }
   }
 
