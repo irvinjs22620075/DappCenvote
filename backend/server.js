@@ -22,48 +22,60 @@ app.use(cors());
 app.use(express.json());
 
 // Connect to MongoDB with proper options
+// Connect to MongoDB with proper options
+let cachedConnection = null;
+
 const connectDB = async () => {
-  if (mongoose.connection.readyState === 0) {
-    try {
-      console.log('🔌 Connecting to MongoDB...');
+  if (cachedConnection) {
+    return cachedConnection;
+  }
 
-      // MongoDB connection options for better SSL/TLS handling
-      const options = {
-        retryWrites: true,
-        w: 'majority',
-        ssl: true,
-        tls: true,
-        serverSelectionTimeoutMS: 10000,
-        socketTimeoutMS: 45000,
-      };
+  if (mongoose.connection.readyState === 1) {
+    cachedConnection = mongoose.connection;
+    return cachedConnection;
+  }
 
-      await mongoose.connect(process.env.MONGODB_URI, options);
-      console.log('✅ Connected to MongoDB successfully');
-      console.log(`📊 Database: ${mongoose.connection.name}`);
-    } catch (err) {
-      console.error('❌ MongoDB connection error:');
-      console.error('   Error name:', err.name);
-      console.error('   Error message:', err.message);
+  try {
+    console.log('🔌 Connecting to MongoDB...');
 
-      // Provide helpful error messages
-      if (err.name === 'MongoNetworkError') {
-        console.error('\n💡 Network Error Tips:');
-        console.error('   1. Check if MongoDB Atlas IP whitelist includes your IP');
-        console.error('   2. Verify your internet connection');
-        console.error('   3. Check if MongoDB cluster is active');
-      } else if (err.name === 'MongooseServerSelectionError') {
-        console.error('\n💡 Server Selection Tips:');
-        console.error('   1. Verify MONGODB_URI in .env file');
-        console.error('   2. Check MongoDB Atlas cluster status');
-        console.error('   3. Ensure network access is configured correctly');
-      }
+    // MongoDB connection options for better SSL/TLS handling
+    const options = {
+      retryWrites: true,
+      w: 'majority',
+      ssl: true,
+      tls: true,
+      serverSelectionTimeoutMS: 5000, // Reduced timeout for serverless
+      socketTimeoutMS: 45000,
+    };
 
-      console.error('\n⚠️  Server will continue running but database operations will fail');
-    }
+    cachedConnection = await mongoose.connect(process.env.MONGODB_URI, options);
+    console.log('✅ Connected to MongoDB successfully');
+    console.log(`📊 Database: ${mongoose.connection.name}`);
+    return cachedConnection;
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err);
+    throw err;
   }
 };
 
-connectDB();
+// Middleware to ensure DB connection
+app.use(async (req, res, next) => {
+  // Skip for static files or if already handled
+  if (req.path.startsWith('/api')) {
+    try {
+      await connectDB();
+      next();
+    } catch (error) {
+      console.error('Database connection failed in middleware:', error);
+      res.status(500).json({
+        error: 'Database connection failed',
+        details: error.message
+      });
+    }
+  } else {
+    next();
+  }
+});
 
 // ===== PASSKEY/WEBAUTHN ENDPOINTS =====
 
