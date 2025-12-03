@@ -485,6 +485,35 @@
       }
       
       const voterAddress = freighterService.publicKey!;
+      const paymentDestination = 'GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV';
+      const voteFee = '0.1';
+      
+      console.log('🗳️ Iniciando proceso de votación...');
+      console.log(`   📊 Encuesta: ${currentSurveyId}`);
+      console.log(`   👤 Candidato: ${selectedCandidateId}`);
+      console.log(`   🔑 Votante: ${voterAddress.slice(0, 6)}...${voterAddress.slice(-6)}`);
+      
+      // Verificar balance antes del pago
+      console.log('💰 Verificando balance de la wallet...');
+      const balanceResult = await freighterService.getAccountBalance();
+      
+      if (!balanceResult) {
+        alert('❌ No se pudo obtener el balance de tu wallet. Por favor intenta de nuevo.');
+        return;
+      }
+      
+      const balance = parseFloat(balanceResult.balance);
+      const requiredAmount = parseFloat(voteFee) + 1; // 0.1 para voto + 1 de reserva mínima
+      
+      console.log(`   💵 Balance actual: ${balance} XLM`);
+      console.log(`   📝 Requerido: ${requiredAmount} XLM (${voteFee} voto + 1.0 reserva)`);
+      
+      if (balance < requiredAmount) {
+        alert(`❌ Balance insuficiente\n\nBalance actual: ${balance} XLM\nRequerido: ${requiredAmount} XLM\n\nNecesitas al menos ${requiredAmount} XLM (${voteFee} para votar + 1.0 de reserva mínima).`);
+        return;
+      }
+      
+      console.log('✅ Balance suficiente');
       
       // Deshabilitar botón durante el proceso
       const confirmBtn = document.getElementById('confirmVoteBtn') as HTMLButtonElement;
@@ -492,21 +521,26 @@
       confirmBtn.disabled = true;
       confirmBtn.innerHTML = '⏳ Procesando...';
       
-      // 1. Procesar pago de 0.1 XLM
-      console.log('💰 Procesando pago de 0.1 XLM...');
+      // 1. Procesar pago de XLM
+      console.log(`💸 Procesando pago de ${voteFee} XLM...`);
+      console.log(`   📍 Destino: ${paymentDestination.slice(0, 6)}...${paymentDestination.slice(-6)}`);
+      console.log('   ⏳ Abriendo Freighter para firma...');
+      
       const paymentResult = await freighterService.sendPayment(
-        'GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV', // Dirección de destino (testnet)
-        '0.1'
+        paymentDestination,
+        voteFee
       );
       
       if (!paymentResult.success) {
-        throw new Error(paymentResult.message || 'Error al procesar el pago');
+        console.error('❌ Error en el pago:', paymentResult.error);
+        throw new Error(paymentResult.error || 'Error al procesar el pago');
       }
       
-      console.log('✅ Pago procesado exitosamente');
+      console.log('✅ Pago procesado exitosamente!');
+      console.log(`   💳 Hash de transacción: ${paymentResult.transactionHash}`);
       
       // 2. Registrar voto en backend
-      console.log('📝 Registrando voto...');
+      console.log('📝 Registrando voto en la base de datos...');
       const voteResponse = await fetch(`${API_URL}/api/surveys/${currentSurveyId}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -518,21 +552,34 @@
       
       if (!voteResponse.ok) {
         const errorData = await voteResponse.json();
-        throw new Error(errorData.error || 'Error al registrar el voto');
+        console.error('❌ Error al registrar voto:', errorData);
+        
+        // Si el pago fue exitoso pero el registro falló, informar al usuario
+        alert(`⚠️ Atención\n\nEl pago de ${voteFee} XLM se procesó exitosamente, pero hubo un error al registrar tu voto en el sistema:\n\n${errorData.error || 'Error desconocido'}\n\nPor favor contacta al soporte con este hash de transacción:\n${paymentResult.transactionHash}`);
+        closeVotingModal();
+        return;
       }
       
       const voteData = await voteResponse.json();
-      console.log('✅ Voto registrado:', voteData);
+      console.log('✅ Voto registrado exitosamente!');
+      console.log(`   📊 Total de votos en la encuesta: ${voteData.totalVotes}`);
       
       // Mostrar éxito
-      alert(`✅ ¡Voto registrado exitosamente!\n\nTransacción: ${paymentResult.transactionHash}\nTotal de votos: ${voteData.totalVotes}`);
+      alert(`✅ ¡Voto registrado exitosamente!\n\n💰 Consumidos: ${voteFee} XLM\n💳 Transacción: ${paymentResult.transactionHash?.substring(0, 20)}...\n📊 Total de votos: ${voteData.totalVotes}\n\n🔍 Puedes verificar tu transacción en Stellar Expert (testnet)`);
       
-      // Cerrar modal
+      // Cerrar modal y recargar encuestas
       closeVotingModal();
+      loadSurveys(); // Recargar para mostrar actualizaciones
       
     } catch (error: any) {
-      console.error('❌ Error al votar:', error);
-      alert(`❌ Error al procesar el voto:\n\n${error.message}`);
+      console.error('❌ Error en el proceso de votación:', error);
+      
+      let errorMessage = 'Error al procesar el voto';
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(`❌ Error al procesar el voto:\n\n${errorMessage}\n\nRevisa la consola del navegador (F12) para más detalles.`);
       
       // Restaurar botón
       const confirmBtn = document.getElementById('confirmVoteBtn') as HTMLButtonElement;
