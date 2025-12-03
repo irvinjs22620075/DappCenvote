@@ -1,5 +1,5 @@
 // WebAuthn (Passkey) service con integración backend
-const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://localhost:3000') + '/api';
+const API_BASE = (import.meta.env.PUBLIC_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '')) + '/api';
 
 /**
  * Convierte un ArrayBuffer a base64url
