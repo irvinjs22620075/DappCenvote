@@ -343,20 +343,6 @@
         }
       }
       
-      // Cargar resultados actuales
-      let results;
-      try {
-        const resultsResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/results`);
-        if (resultsResponse.ok) {
-          results = await resultsResponse.json();
-        } else {
-          throw new Error('Failed to fetch results');
-        }
-      } catch (err) {
-        console.warn('Could not fetch results, using default');
-        results = { totalVotes: 0, results: [] };
-      }
-      
       console.log('🔍 Loading candidates for IDs:', candidateIds);
       
       // Cargar candidatos
@@ -366,7 +352,6 @@
             const response = await fetch(`${API_URL}/api/candidates/${id}`);
             if (response.ok) {
               const data = await response.json();
-              console.log('✅ Loaded candidate from API:', data.name);
               return data;
             }
           } catch (err) {
@@ -377,15 +362,46 @@
           const localCandidate = localCandidates.find((c: any) => c._id === id);
           
           if (localCandidate) {
-            console.log('✅ Loaded candidate from LocalStorage:', localCandidate.name);
             return localCandidate;
           }
           
-          console.warn('⚠️ Candidate not found:', id);
-          // Return placeholder if not found
           return { _id: id, name: 'Candidato Desconocido', party: 'N/A' };
         })
       );
+      
+      // Cargar resultados actuales
+      let results;
+      try {
+        const resultsResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/results`);
+        if (resultsResponse.ok) {
+          results = await resultsResponse.json();
+        } else {
+          throw new Error('Failed to fetch results');
+        }
+      } catch (err) {
+        console.warn('Could not fetch results, calculating from local storage');
+        
+        // Calculate results from local storage
+        const localVotes = JSON.parse(localStorage.getItem('simulated_votes') || '[]');
+        const surveyVotes = localVotes.filter((v: any) => v.surveyId === surveyId);
+        const totalVotes = surveyVotes.length;
+        
+        const resultsArray = candidates.map((candidate: any) => {
+          const votes = surveyVotes.filter((v: any) => v.candidateId === candidate._id).length;
+          const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
+          return {
+            candidateId: candidate._id,
+            candidateName: candidate.name,
+            votes: votes,
+            percentage: percentage
+          };
+        });
+        
+        results = {
+          totalVotes: totalVotes,
+          results: resultsArray
+        };
+      }
       
       console.log('📋 Final candidates list:', candidates);
       
