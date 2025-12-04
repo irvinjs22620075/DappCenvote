@@ -177,8 +177,22 @@ import Layout from '../../layouts/Layout.astro';
   
   async function loadCandidateOptions() {
     try {
-      const response = await fetch(`${API_URL}/api/candidates`);
-      const candidates = await response.json();
+      let candidates = [];
+      try {
+        const response = await fetch(`${API_URL}/api/candidates`);
+        if (response.ok) {
+          candidates = await response.json();
+        }
+      } catch (err) {
+        console.warn('Backend unreachable, loading local candidates only');
+      }
+
+      // Merge with simulated candidates
+      const localCandidates = JSON.parse(localStorage.getItem('simulated_candidates') || '[]');
+      const backendIds = new Set(candidates.map(c => c._id));
+      const newLocalCandidates = localCandidates.filter(c => !backendIds.has(c._id));
+      candidates = [...candidates, ...newLocalCandidates];
+
       const gridElement = document.getElementById('candidatesGrid');
       
       gridElement.innerHTML = candidates.map(candidate => `

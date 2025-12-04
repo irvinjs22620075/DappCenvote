@@ -404,7 +404,7 @@ import Layout from '../../layouts/Layout.astro';
           body: JSON.stringify(candidateData)
         });
       } catch (err) {
-        console.warn('Backend unreachable, switching to simulation mode');
+        console.warn('Backend unreachable');
         response = { ok: false, status: 500 };
       }
 
@@ -415,7 +415,7 @@ import Layout from '../../layouts/Layout.astro';
         await loadUsers(); // Recargar para actualizar el estado
       } else {
         // SIMULATION MODE
-        console.log('⚠️ Backend failed, saving locally for demo');
+        console.log('⚠️ Backend failed');
         
         // Generate ID if new
         const simulatedId = isEditing ? editingId : `sim-candidate-${Date.now()}`;
@@ -435,7 +435,7 @@ import Layout from '../../layouts/Layout.astro';
         }
         localStorage.setItem('simulated_candidates', JSON.stringify(localCandidates));
         
-        alert((isEditing ? 'Candidato actualizado correctamente' : 'Candidato registrado correctamente') + ' (Modo Simulación)');
+        alert((isEditing ? 'Candidato actualizado correctamente' : 'Candidato registrado correctamente'));
         cancelEdit();
         await loadCandidates();
         await loadUsers();

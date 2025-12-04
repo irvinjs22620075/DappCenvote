@@ -11,6 +11,19 @@
         "candidate-1764876486986"
       ],
       "created_by": "GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV"
+    },
+    {
+      "_id": "survey-1764878767344",
+      "name": "prueba",
+      "description": "uno",
+      "start_date": "2025-12-04T14:05",
+      "end_date": "2025-12-05T14:06",
+      "candidates": [
+        "candidate-1764876481306",
+        "candidate-1764878738803",
+        "candidate-1764876486986"
+      ],
+      "created_by": "GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV"
     }
   ],
   "candidates": [
@@ -24,6 +37,12 @@
       "_id": "candidate-1764876486986",
       "name": "sandy garcia santiago",
       "rfc": "sandy@gmail.com",
+      "wallet_address": null
+    },
+    {
+      "_id": "candidate-1764878738803",
+      "name": "f gg f",
+      "rfc": "feeeeeef2@gmail.com",
       "wallet_address": null
     }
   ],
@@ -63,6 +82,15 @@
       "phone": "1345678902",
       "email": "marcorg@gmail.com",
       "wallet_address": null
+    },
+    {
+      "_id": "user-1764878724528",
+      "first_name": "f",
+      "paternal_last_name": "gg",
+      "maternal_last_name": "f",
+      "phone": "88989989",
+      "email": "feeeeeef2@gmail.com",
+      "wallet_address": null
     }
   ],
   "votes": [
@@ -71,6 +99,12 @@
       "candidateId": "candidate-1764876481306",
       "voterAddress": "GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV",
       "_id": "17648765565550cb26dr4p"
+    },
+    {
+      "surveyId": "survey-1764878767344",
+      "candidateId": "candidate-1764878738803",
+      "voterAddress": "GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV",
+      "_id": "1764878793790z3n3qs54o"
     }
   ]
 }
