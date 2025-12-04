@@ -326,13 +326,20 @@
             body: JSON.stringify({ voterAddress: freighterService.publicKey })
           });
           
-          if (checkResponse.ok) {
-            const checkData = await checkResponse.json();
-            hasVoted = checkData.hasVoted;
-          }
         } catch (err) {
-          console.warn('Backend unreachable for check-vote, assuming false');
-          hasVoted = false;
+          console.warn('Backend unreachable for check-vote, checking local storage');
+        }
+        
+        // Check local storage if backend check failed or returned false
+        if (!hasVoted) {
+          const localVotes = JSON.parse(localStorage.getItem('simulated_votes') || '[]');
+          const localVote = localVotes.find((v: any) => 
+            v.surveyId === surveyId && v.voterAddress === freighterService.publicKey
+          );
+          if (localVote) {
+            hasVoted = true;
+            console.log('✅ Found local vote record');
+          }
         }
       }
       
@@ -587,6 +594,17 @@
         voteData = await voteResponse.json();
       } catch (err) {
         console.warn('Backend unreachable, simulating vote');
+        
+        // Save vote locally
+        const localVotes = JSON.parse(localStorage.getItem('simulated_votes') || '[]');
+        localVotes.push({
+          surveyId: currentSurveyId,
+          voterAddress: voterAddress,
+          candidateId: selectedCandidateId,
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('simulated_votes', JSON.stringify(localVotes));
+
         // Simulate successful vote response
         voteData = {
           success: true,
