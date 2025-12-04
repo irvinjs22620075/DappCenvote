@@ -736,7 +736,7 @@ import Layout from '../../layouts/Layout.astro';
         }
         localStorage.setItem('simulated_surveys', JSON.stringify(localSurveys));
         
-        alert((isEditing ? 'Encuesta actualizada' : 'Encuesta creada') + ' (Modo Simulación: Guardado localmente)');
+        alert((isEditing ? 'Encuesta actualizada correctamente' : 'Encuesta creada correctamente'));
         cancelEdit();
         loadSurveys();
       }

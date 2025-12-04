@@ -45,6 +45,24 @@
       "phone": "9531446789",
       "email": "sandy@gmail.com",
       "wallet_address": null
+    },
+    {
+      "_id": "user-1764876891420",
+      "first_name": "irvinggg",
+      "paternal_last_name": "jimenez",
+      "maternal_last_name": "sanchez",
+      "phone": "9531643571",
+      "email": "irvingjimenezsanchez5@gmail.com",
+      "wallet_address": null
+    },
+    {
+      "_id": "user-1764877733504",
+      "first_name": "marco",
+      "paternal_last_name": "rosas",
+      "maternal_last_name": "garcia",
+      "phone": "1345678902",
+      "email": "marcorg@gmail.com",
+      "wallet_address": null
     }
   ],
   "votes": [

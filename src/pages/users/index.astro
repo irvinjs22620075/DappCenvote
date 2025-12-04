@@ -271,7 +271,7 @@ import Layout from '../../layouts/Layout.astro';
         }
         localStorage.setItem('simulated_users', JSON.stringify(localUsers));
         
-        alert((isEditing ? 'Usuario actualizado' : 'Usuario registrado') + ' (Modo Simulación: Guardado localmente)');
+        alert((isEditing ? 'Usuario actualizado correctamente' : 'Usuario registrado correctamente'));
         cancelEdit();
         loadUsers();
       }
