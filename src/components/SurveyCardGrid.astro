@@ -319,14 +319,21 @@
       // Verificar si el usuario ya votó
       let hasVoted = false;
       if (freighterService.publicKey) {
-        const checkResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/check-vote`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ voterAddress: freighterService.publicKey })
-        });
-        
-        const checkData = await checkResponse.json();
-        hasVoted = checkData.hasVoted;
+        try {
+          const checkResponse = await fetch(`${API_URL}/api/surveys/${surveyId}/check-vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ voterAddress: freighterService.publicKey })
+          });
+          
+          if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            hasVoted = checkData.hasVoted;
+          }
+        } catch (err) {
+          console.warn('Backend unreachable for check-vote, assuming false');
+          hasVoted = false;
+        }
       }
       
       // Cargar resultados actuales
