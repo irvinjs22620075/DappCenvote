@@ -343,13 +343,17 @@
         results = { totalVotes: 0, results: [] };
       }
       
+      console.log('🔍 Loading candidates for IDs:', candidateIds);
+      
       // Cargar candidatos
       const candidates = await Promise.all(
         candidateIds.map(async (id) => {
           try {
             const response = await fetch(`${API_URL}/api/candidates/${id}`);
             if (response.ok) {
-              return response.json();
+              const data = await response.json();
+              console.log('✅ Loaded candidate from API:', data.name);
+              return data;
             }
           } catch (err) {
             // Fallback to local
@@ -358,12 +362,18 @@
           const localCandidates = JSON.parse(localStorage.getItem('simulated_candidates') || '[]');
           const localCandidate = localCandidates.find((c: any) => c._id === id);
           
-          if (localCandidate) return localCandidate;
+          if (localCandidate) {
+            console.log('✅ Loaded candidate from LocalStorage:', localCandidate.name);
+            return localCandidate;
+          }
           
+          console.warn('⚠️ Candidate not found:', id);
           // Return placeholder if not found
           return { _id: id, name: 'Candidato Desconocido', party: 'N/A' };
         })
       );
+      
+      console.log('📋 Final candidates list:', candidates);
       
       // Ocultar loading, mostrar lista
       loading?.classList.add('hidden');
