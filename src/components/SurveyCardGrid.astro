@@ -150,8 +150,17 @@
       // Filtrar solo encuestas activas
       const now = new Date();
       const activeSurveys = surveys.filter(survey => {
+        // Asegurar que las fechas se interpreten correctamente
         const startDate = new Date(survey.start_date);
         const endDate = new Date(survey.end_date);
+        
+        // Ajustar fecha de fin al final del día (23:59:59.999)
+        // Para evitar que una encuesta que termina "hoy" se considere finalizada al inicio del día
+        endDate.setUTCHours(23, 59, 59, 999);
+        
+        // Ajustar fecha de inicio al inicio del día
+        startDate.setUTCHours(0, 0, 0, 0);
+        
         return now >= startDate && now <= endDate;
       });
 
