@@ -14,10 +14,9 @@ export interface VoteResult {
     error?: string;
 }
 
-// Dirección de destino para los pagos de votación
-// Esta es la dirección configurada en FreighterService como cuenta esperada
-// Todos los pagos de votación se envían aquí para centralizar el tracking
-const VOTE_PAYMENT_DESTINATION = 'GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV';
+// Dirección de destino para los pagos de votación (puede ser una cuenta del sistema)
+// Por ahora usamos una cuenta genérica de testnet
+const VOTE_PAYMENT_DESTINATION = 'GAIH3ULLFQ4DGSECF2AR555KZ4KNDGEKN4AFI4SU2M7B43MGK3QJZNSR';
 const VOTE_FEE_XLM = '0.1'; // Costo de votar: 0.1 XLM
 
 class VotingService {
@@ -76,17 +75,12 @@ class VotingService {
 
             // 3. Procesar pago de votación
             console.log(`💸 Procesando pago de ${VOTE_FEE_XLM} XLM...`);
-            console.log(`   📍 Destino: ${VOTE_PAYMENT_DESTINATION.slice(0, 6)}...${VOTE_PAYMENT_DESTINATION.slice(-6)}`);
-            console.log(`   🔑 Origen: ${payload.voterAddress.slice(0, 6)}...${payload.voterAddress.slice(-6)}`);
-            console.log('   ⏳ Esperando confirmación de Freighter...');
-
             const paymentResult = await freighterService.sendPayment(
                 VOTE_PAYMENT_DESTINATION,
                 VOTE_FEE_XLM
             );
 
             if (!paymentResult.success) {
-                console.error('❌ Error en el pago:', paymentResult.error);
                 return {
                     success: false,
                     message: `Error al procesar el pago: ${paymentResult.error}`,
@@ -94,8 +88,7 @@ class VotingService {
                 };
             }
 
-            console.log('✅ Pago procesado exitosamente!');
-            console.log(`   💳 Hash de transacción: ${paymentResult.transactionHash}`);
+            console.log('✅ Pago procesado:', paymentResult.transactionHash);
 
             // 4. Registrar voto en MongoDB
             console.log('📝 Registrando voto en la base de datos...');
