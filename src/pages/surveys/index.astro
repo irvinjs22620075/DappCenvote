@@ -239,14 +239,29 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar encuestas
   async function loadSurveys() {
     try {
-      const response = await fetch(`${API_URL}/api/surveys`);
-      const surveys = await response.json();
+      let surveys = [];
+      try {
+        const response = await fetch(`${API_URL}/api/surveys`);
+        if (response.ok) {
+          surveys = await response.json();
+        }
+      } catch (err) {
+        console.warn('Backend unreachable, loading local surveys only');
+      }
+
+      // Merge with simulated surveys
+      const localSurveys = JSON.parse(localStorage.getItem('simulated_surveys') || '[]');
+      // Combine arrays (avoid duplicates if ID exists in both, prefer backend)
+      const backendIds = new Set(surveys.map(s => s._id));
+      const newLocalSurveys = localSurveys.filter(s => !backendIds.has(s._id));
+      surveys = [...surveys, ...newLocalSurveys];
+
       const surveysList = document.getElementById('surveysList');
       
       if (surveys.length === 0) {
         surveysList.innerHTML = `
           <div class="col-span-full text-center text-gray-400 py-12">
-            No hay encuestas creadas aún
+            No hay encuestas creadas aún (Modo Simulación Activo)
           </div>
         `;
         return;
@@ -674,31 +689,56 @@ import Layout from '../../layouts/Layout.astro';
 
     try {
       // Guardar en MongoDB
-
       const url = isEditing 
         ? `${API_URL}/api/surveys/${editingId}`
         : `${API_URL}/api/surveys`;
         
       const method = isEditing ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(surveyData)
-      });
-
-      const data = await response.json();
+      let response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(surveyData)
+        });
+      } catch (err) {
+        console.warn('Backend unreachable, switching to simulation mode');
+        response = { ok: false, status: 500 };
+      }
 
       if (response.ok) {
+        const data = await response.json();
         alert(isEditing ? 'Encuesta actualizada exitosamente' : 'Encuesta creada exitosamente');
         cancelEdit();
         loadSurveys();
       } else {
-        // Mostrar el error específico del backend
-        const errorMsg = data.error || 'Error desconocido al guardar encuesta';
-        throw new Error(errorMsg);
+        // SIMULATION MODE
+        console.log('⚠️ Backend failed, saving locally for demo');
+        
+        // Generate ID if new
+        const simulatedId = isEditing ? editingId : `sim-${Date.now()}`;
+        const simulatedSurvey = {
+          _id: simulatedId,
+          ...surveyData,
+          createdAt: new Date().toISOString()
+        };
+        
+        // Save to localStorage
+        const localSurveys = JSON.parse(localStorage.getItem('simulated_surveys') || '[]');
+        if (isEditing) {
+          const index = localSurveys.findIndex(s => s._id === editingId);
+          if (index !== -1) localSurveys[index] = simulatedSurvey;
+        } else {
+          localSurveys.push(simulatedSurvey);
+        }
+        localStorage.setItem('simulated_surveys', JSON.stringify(localSurveys));
+        
+        alert((isEditing ? 'Encuesta actualizada' : 'Encuesta creada') + ' (Modo Simulación: Guardado localmente)');
+        cancelEdit();
+        loadSurveys();
       }
     } catch (error) {
       console.error('Error completo:', error);

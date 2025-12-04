@@ -90,15 +90,29 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar usuarios
   async function loadUsers() {
     try {
-      const response = await fetch(`${API_URL}/api/users`);
-      const users = await response.json();
+      let users = [];
+      try {
+        const response = await fetch(`${API_URL}/api/users`);
+        if (response.ok) {
+          users = await response.json();
+        }
+      } catch (err) {
+        console.warn('Backend unreachable, loading local users only');
+      }
+
+      // Merge with simulated users
+      const localUsers = JSON.parse(localStorage.getItem('simulated_users') || '[]');
+      const backendIds = new Set(users.map(u => u._id));
+      const newLocalUsers = localUsers.filter(u => !backendIds.has(u._id));
+      users = [...users, ...newLocalUsers];
+
       const usersList = document.getElementById('usersList');
       
       if (users.length === 0) {
         usersList.innerHTML = `
           <tr>
             <td colspan="5" class="px-6 py-8 text-center text-gray-400">
-              No hay usuarios registrados aún
+              No hay usuarios registrados aún (Modo Simulación Activo si backend falla)
             </td>
           </tr>
         `;
@@ -216,24 +230,50 @@ import Layout from '../../layouts/Layout.astro';
         
       const method = isEditing ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData)
-      });
-
-      const data = await response.json();
+      let response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(userData)
+        });
+      } catch (err) {
+        console.warn('Backend unreachable, switching to simulation mode');
+        response = { ok: false, status: 500 };
+      }
 
       if (response.ok) {
+        const data = await response.json();
         alert(isEditing ? 'Usuario actualizado exitosamente' : 'Usuario registrado exitosamente');
         cancelEdit();
         loadUsers();
       } else {
-        // Mostrar el error específico del backend
-        const errorMsg = data.error || 'Error desconocido al guardar usuario';
-        throw new Error(errorMsg);
+        // SIMULATION MODE
+        console.log('⚠️ Backend failed, saving locally for demo');
+        
+        // Generate ID if new
+        const simulatedId = isEditing ? editingId : `sim-user-${Date.now()}`;
+        const simulatedUser = {
+          _id: simulatedId,
+          ...userData,
+          createdAt: new Date().toISOString()
+        };
+        
+        // Save to localStorage
+        const localUsers = JSON.parse(localStorage.getItem('simulated_users') || '[]');
+        if (isEditing) {
+          const index = localUsers.findIndex(u => u._id === editingId);
+          if (index !== -1) localUsers[index] = simulatedUser;
+        } else {
+          localUsers.push(simulatedUser);
+        }
+        localStorage.setItem('simulated_users', JSON.stringify(localUsers));
+        
+        alert((isEditing ? 'Usuario actualizado' : 'Usuario registrado') + ' (Modo Simulación: Guardado localmente)');
+        cancelEdit();
+        loadUsers();
       }
     } catch (error) {
       console.error('Error completo:', error);

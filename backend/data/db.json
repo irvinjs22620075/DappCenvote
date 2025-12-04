@@ -1,0 +1,58 @@
+{
+  "surveys": [
+    {
+      "_id": "survey-1764876520875",
+      "name": "USO DE CONTRASEÑAS SEGURAS",
+      "description": "1",
+      "start_date": "2025-12-04T13:28",
+      "end_date": "2025-12-05T13:28",
+      "candidates": [
+        "candidate-1764876481306",
+        "candidate-1764876486986"
+      ],
+      "created_by": "GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV"
+    }
+  ],
+  "candidates": [
+    {
+      "_id": "candidate-1764876481306",
+      "name": "irvin jimenez sanchez",
+      "rfc": "whotmaster@gmail.com",
+      "wallet_address": null
+    },
+    {
+      "_id": "candidate-1764876486986",
+      "name": "sandy garcia santiago",
+      "rfc": "sandy@gmail.com",
+      "wallet_address": null
+    }
+  ],
+  "users": [
+    {
+      "_id": "user-1764876458258",
+      "first_name": "irvin",
+      "paternal_last_name": "jimenez",
+      "maternal_last_name": "sanchez",
+      "phone": "9531643574",
+      "email": "whotmaster@gmail.com",
+      "wallet_address": null
+    },
+    {
+      "_id": "user-1764876468325",
+      "first_name": "sandy",
+      "paternal_last_name": "garcia",
+      "maternal_last_name": "santiago",
+      "phone": "9531446789",
+      "email": "sandy@gmail.com",
+      "wallet_address": null
+    }
+  ],
+  "votes": [
+    {
+      "surveyId": "survey-1764876520875",
+      "candidateId": "candidate-1764876481306",
+      "voterAddress": "GBBP2RUEDFJQCUXFBODTTSH3RG7JGSVCSS5JZWZ7RKYDYCQXDEATA6IV",
+      "_id": "17648765565550cb26dr4p"
+    }
+  ]
+}
