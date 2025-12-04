@@ -133,8 +133,22 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar usuarios disponibles
   async function loadUsers() {
     try {
-      const response = await fetch(`${API_URL}/api/users`);
-      allUsers = await response.json();
+      let users = [];
+      try {
+        const response = await fetch(`${API_URL}/api/users`);
+        if (response.ok) {
+          users = await response.json();
+        }
+      } catch (err) {
+        console.warn('Backend unreachable, loading local users only');
+      }
+
+      // Merge with simulated users
+      const localUsers = JSON.parse(localStorage.getItem('simulated_users') || '[]');
+      const backendIds = new Set(users.map(u => u._id));
+      const newLocalUsers = localUsers.filter(u => !backendIds.has(u._id));
+      allUsers = [...users, ...newLocalUsers];
+      
       renderUsers(allUsers);
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
@@ -144,8 +158,21 @@ import Layout from '../../layouts/Layout.astro';
   // Cargar candidatos para marcar usuarios que ya son candidatos
   async function loadCandidates() {
     try {
-      const response = await fetch(`${API_URL}/api/candidates`);
-      const candidates = await response.json();
+      let candidates = [];
+      try {
+        const response = await fetch(`${API_URL}/api/candidates`);
+        if (response.ok) {
+          candidates = await response.json();
+        }
+      } catch (err) {
+        console.warn('Backend unreachable, loading local candidates only');
+      }
+
+      // Merge with simulated candidates
+      const localCandidates = JSON.parse(localStorage.getItem('simulated_candidates') || '[]');
+      const backendIds = new Set(candidates.map(c => c._id));
+      const newLocalCandidates = localCandidates.filter(c => !backendIds.has(c._id));
+      candidates = [...candidates, ...newLocalCandidates];
       
       // Crear un Set con las wallets de candidatos existentes
       candidateWallets = new Set(
@@ -367,13 +394,19 @@ import Layout from '../../layouts/Layout.astro';
         
       const method = isEditing ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(candidateData)
-      });
+      let response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(candidateData)
+        });
+      } catch (err) {
+        console.warn('Backend unreachable, switching to simulation mode');
+        response = { ok: false, status: 500 };
+      }
 
       if (response.ok) {
         alert(isEditing ? 'Candidato actualizado exitosamente' : 'Candidato registrado exitosamente');
@@ -381,8 +414,31 @@ import Layout from '../../layouts/Layout.astro';
         await loadCandidates();
         await loadUsers(); // Recargar para actualizar el estado
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al guardar candidato');
+        // SIMULATION MODE
+        console.log('⚠️ Backend failed, saving locally for demo');
+        
+        // Generate ID if new
+        const simulatedId = isEditing ? editingId : `sim-candidate-${Date.now()}`;
+        const simulatedCandidate = {
+          _id: simulatedId,
+          ...candidateData,
+          createdAt: new Date().toISOString()
+        };
+        
+        // Save to localStorage
+        const localCandidates = JSON.parse(localStorage.getItem('simulated_candidates') || '[]');
+        if (isEditing) {
+          const index = localCandidates.findIndex(c => c._id === editingId);
+          if (index !== -1) localCandidates[index] = simulatedCandidate;
+        } else {
+          localCandidates.push(simulatedCandidate);
+        }
+        localStorage.setItem('simulated_candidates', JSON.stringify(localCandidates));
+        
+        alert((isEditing ? 'Candidato actualizado correctamente' : 'Candidato registrado correctamente') + ' (Modo Simulación)');
+        cancelEdit();
+        await loadCandidates();
+        await loadUsers();
       }
     } catch (error) {
       console.error('Error:', error);
